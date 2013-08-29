@@ -4,14 +4,23 @@ GLFW bindings and wrapper for The Rust Programming Language.
 
 ## Example code
 
-GLFW is extremely easy to set up. More complex examples can be found in the `examples` directory.
-
 ~~~rust
 extern mod glfw;
 
+#[start]
+fn start(argc: int, argv: **u8, crate_map: *u8) -> int {
+    // Run GLFW on the main thread
+    std::rt::start_on_main_thread(argc, argv, crate_map, main)
+}
+
 fn main() {
-    // Initialize the library on the main platform thread
-    do glfw::spawn {
+    // Set an error callback
+    do glfw::set_error_callback |_, description| {
+        printfln!("GLFW Error: %s", description);
+    }
+
+    // Initialize the library
+    do glfw::start {
         // Create a windowed mode window and its OpenGL context
         let window = glfw::Window::create(300, 300, "Hello this is window", glfw::Windowed).unwrap();
 
@@ -47,6 +56,7 @@ fn main() {
 
 ## glfw-rs in use
 
+- [sebcrozet/kiss3d](https://github.com/sebcrozet/kiss3d)
 - [Jeaye/q3](https://github.com/Jeaye/q3)
 - [cyndis/rsmc](https://github.com/cyndis/rsmc/)
-- [bjz/open.gl-tutorials](https://github.com/bjz/open.gl-tutorials)
+- [mozilla/servo](https://github.com/mozilla/servo)

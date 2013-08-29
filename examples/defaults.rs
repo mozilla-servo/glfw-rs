@@ -21,11 +21,15 @@ fn error_callback(_: libc::c_int, description: ~str) {
     println(fmt!("GLFW Error: %s", description));
 }
 
+#[start]
+fn start(argc: int, argv: **u8, crate_map: *u8) -> int {
+    std::rt::start_on_main_thread(argc, argv, crate_map, main)
+}
+
 fn main() {
     glfw::set_error_callback(error_callback);
 
-    do glfw::spawn {
-
+    do glfw::start {
         glfw::window_hint::visible(true);
 
         let window = glfw::Window::create(640, 480, "Defaults", glfw::Windowed).unwrap();
@@ -55,7 +59,7 @@ fn main() {
             (gl::SAMPLES_ARB,       Some("GL_ARB_multisample"), "FSAA samples" ),
         ];
 
-        for gl_params.each |&(param, ext, name)| {
+        for &(param, ext, name) in gl_params.iter() {
             if do ext.map_default(true) |&s| {
                 glfw::extension_supported(s)
             } {
@@ -75,12 +79,12 @@ mod gl {
     #[nolink]
     #[link_args="-framework OpenGL"]
     #[cfg(target_os = "macos")]
-    pub extern { }
+    extern { }
 
     #[nolink]
     #[link_args="-lGL"]
     #[cfg(target_os = "linux")]
-    pub extern { }
+    extern { }
 
     pub type GLenum = libc::c_uint;
     pub type GLint  = libc::c_int;
@@ -98,8 +102,12 @@ mod gl {
     pub static STEREO                : GLenum = 0x0C33;
     pub static SAMPLES_ARB           : GLenum = 0x80A9;
 
-    pub extern "C" {
-        #[link_name="glGetIntegerv"]
-        pub fn GetIntegerv(pname: GLenum, params: *GLint);
+    #[fixed_stack_segment] #[inline(never)]
+    pub unsafe fn GetIntegerv(pname: GLenum, params: *GLint) {
+        glGetIntegerv(pname, params)
+    }
+
+    extern "C" {
+        fn glGetIntegerv(pname: GLenum, params: *GLint);
     }
 }
