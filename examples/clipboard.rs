@@ -17,10 +17,15 @@ extern mod glfw;
 
 use std::libc;
 
+#[start]
+fn start(argc: int, argv: **u8, crate_map: *u8) -> int {
+    std::rt::start_on_main_thread(argc, argv, crate_map, main)
+}
+
 fn main() {
     glfw::set_error_callback(error_callback);
 
-    do glfw::spawn {
+    do glfw::start {
         let window = glfw::Window::create(300, 300, "Clipboard Test", glfw::Windowed).unwrap();
 
         window.make_context_current();
@@ -28,7 +33,8 @@ fn main() {
         glfw::set_swap_interval(1);
 
         while !window.should_close() {
-            glfw::wait_events();
+            window.poll_events();
+            glfw::poll_events();
         }
     }
 }
