@@ -5,7 +5,6 @@ RUSTFLAGS ?=
 
 RUST_SRC = \
 	$(addprefix src/glfw/,\
-		consts.rs \
 		ffi.rs \
 		extfn.rs)
 
