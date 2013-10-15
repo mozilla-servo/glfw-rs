@@ -18,8 +18,8 @@ extern mod glfw;
 use std::libc;
 
 #[start]
-fn start(argc: int, argv: **u8, crate_map: *u8) -> int {
-    std::rt::start_on_main_thread(argc, argv, crate_map, main)
+fn start(argc: int, argv: **u8) -> int {
+    std::rt::start_on_main_thread(argc, argv, main)
 }
 
 fn main() {
@@ -129,7 +129,7 @@ fn mouse_button_callback(_: &glfw::Window, button: glfw::MouseButton, action: gl
              });
 }
 
-fn cursor_pos_callback(window: &glfw::Window, xpos: float, ypos: float) {
+fn cursor_pos_callback(window: &glfw::Window, xpos: f64, ypos: f64) {
     window.set_title(format!("Cursor position: ({}, {})", xpos, ypos));
 }
 
@@ -138,6 +138,6 @@ fn cursor_enter_callback(_: &glfw::Window, entered: bool) {
     else       { println("Cursor left window.");    }
 }
 
-fn scroll_callback(window: &glfw::Window, x: float, y: float) {
+fn scroll_callback(window: &glfw::Window, x: f64, y: f64) {
     window.set_title(format!("Scroll offset: ({}, {})", x, y));
 }
