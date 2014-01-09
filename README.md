@@ -1,3 +1,20 @@
+<!--
+    Copyright 2013 The GLFW-RS Developers. For a full listing of the authors,
+    refer to the AUTHORS file at the top-level directory of this distribution.
+    
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+    
+        http://www.apache.org/licenses/LICENSE-2.0
+    
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+-->
+
 # glfw-rs
 
 GLFW bindings and wrapper for The Rust Programming Language.
@@ -5,19 +22,18 @@ GLFW bindings and wrapper for The Rust Programming Language.
 ## Example code
 
 ~~~rust
+extern mod native;
 extern mod glfw;
 
 #[start]
 fn start(argc: int, argv: **u8) -> int {
     // Run GLFW on the main thread
-    std::rt::start_on_main_thread(argc, argv, main)
+    native::start(argc, argv, main)
 }
 
 fn main() {
-    // Set an error callback
-    do glfw::set_error_callback |_, description| {
-        printfln!("GLFW Error: %s", description);
-    }
+    // Set up an error callback
+    glfw::set_error_callback(~ErrorContext);
 
     // Initialize the library
     do glfw::start {
@@ -38,42 +54,55 @@ fn main() {
         }
     }
 }
+
+struct ErrorContext;
+impl glfw::ErrorCallback for ErrorContext {
+    fn call(&self, _: glfw::Error, description: ~str) {
+        println!("GLFW Error: {:s}", description);
+    }
+}
 ~~~
 
 ## Compilation
 
+You will need [CMake](http://www.cmake.org) to set up glfw-rs for building.
+
+First setup your build directory:
+
+~~~
+git clone https://github.com/bjz/glfw-rs.git
+cd glfw-rs
+mkdir build
+cd build
+cmake ..
+~~~
+
+### Building everything
+
+~~~
+make 
+~~~
+
 ### Building the library
 
 ~~~
-rustpkg build glfw
-~~~
-
-#### Homebrew Users
-
-Homebrew installs `libglfw.dylib` under the name `libglfw3.dylib`. In order for
-compilation to work, you'll need to create a symlink to the library _before_
-you build glfw-rs:
-
-~~~
-ln -s /usr/local/lib/libglfw3.dylib /usr/local/lib/libglfw.dylib
+make lib
 ~~~
 
 ### Building the examples
+
 ~~~
-rustpkg build examples
+make examples
 ~~~
 
-### Building a specific example
+Or to build a single example:
+
 ~~~
-rustpkg build examples/callbacks
+make <example-name>
 ~~~
+
 
 ## FAQ
-
-_I get `ld: library not found for -lglfw` when building on OSX, with glfw installed via Homebrew_
-
-Homebrew installs glfw under a non-standard name. When you compile you'll have
-to [create a symlink to the library](#homebrew-users) first.
 
 _I get lots of errors like: `undefined reference to 'glfwSetScrollCallback'`_
 

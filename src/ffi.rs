@@ -246,7 +246,7 @@ pub static CURSOR_DISABLED              : c_int = 0x00034003;
 pub static CONNECTED                    : c_int = 0x00040001;
 pub static DISCONNECTED                 : c_int = 0x00040002;
 
-pub type GLFWglproc             = extern "C" fn();
+pub type GLFWglproc             = extern "system" fn();
 
 pub type GLFWerrorfun           = extern "C" fn(c_int,*c_char);
 pub type GLFWwindowposfun       = extern "C" fn(*GLFWwindow,c_int,c_int);
@@ -264,9 +264,9 @@ pub type GLFWkeyfun             = extern "C" fn(*GLFWwindow,c_int,c_int,c_int,c_
 pub type GLFWcharfun            = extern "C" fn(*GLFWwindow,c_uint);
 pub type GLFWmonitorfun         = extern "C" fn(*GLFWmonitor,c_int);
 
-pub struct GLFWmonitor;
+pub enum GLFWmonitor {}
 
-pub struct GLFWwindow;
+pub enum GLFWwindow {}
 
 pub struct GLFWgammaramp {
     red:    *c_ushort,
@@ -283,23 +283,6 @@ pub struct GLFWvidmode {
     blueBits:    c_int,
     refreshRate: c_int,
 }
-
-// Linking
-
-#[nolink]
-#[cfg(target_os = "macos")]
-#[link_args="-lglfw -framework Cocoa -framework OpenGL -framework IOKit -framework CoreFoundation -framework QuartzCore"]
-extern { }
-
-#[nolink]
-#[cfg(target_os = "linux")]
-#[link_args="-lglfw -lX11 -lXrandr -lXi -lXxf86vm -lGL"]
-extern { }
-
-#[nolink]
-#[cfg(target_os = "win32")]
-#[link_args="-lglfw3"]
-extern { }
 
 // C function bindings
 

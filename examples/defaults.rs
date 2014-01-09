@@ -12,20 +12,16 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
+extern mod native;
 extern mod glfw;
-
-fn error_callback(_: glfw::Error, description: ~str) {
-    println!("GLFW Error: {:s}", description);
-}
 
 #[start]
 fn start(argc: int, argv: **u8) -> int {
-    std::rt::start_on_main_thread(argc, argv, main)
+    native::start(argc, argv, main)
 }
 
 fn main() {
-    glfw::set_error_callback(error_callback);
+    glfw::set_error_callback(~ErrorContext);
 
     do glfw::start {
         glfw::window_hint::visible(true);
@@ -59,9 +55,9 @@ fn main() {
         ];
 
         for &(param, ext, name) in gl_params.iter() {
-            if do ext.map_default(true) |s| {
+            if ext.map_default(true, |s| {
                 glfw::extension_supported(s)
-            } {
+            }) {
                 let value = 0;
                 unsafe { gl::GetIntegerv(param, &value) };
                 println!("OpenGL {:s}: {}", name, value);
@@ -70,17 +66,22 @@ fn main() {
     }
 }
 
+struct ErrorContext;
+impl glfw::ErrorCallback for ErrorContext {
+    fn call(&self, _: glfw::Error, description: ~str) {
+        println!("GLFW Error: {:s}", description);
+    }
+}
+
 mod gl {
     use std::libc;
 
-    #[nolink]
-    #[link_args="-framework OpenGL"]
     #[cfg(target_os = "macos")]
+    #[link(name="OpenGL", kind="framework")]
     extern { }
 
-    #[nolink]
-    #[link_args="-lGL"]
     #[cfg(target_os = "linux")]
+    #[link(name="GL")]
     extern { }
 
     pub type GLenum = libc::c_uint;
@@ -99,7 +100,7 @@ mod gl {
     pub static STEREO                : GLenum = 0x0C33;
     pub static SAMPLES_ARB           : GLenum = 0x80A9;
 
-    #[fixed_stack_segment] #[inline(never)]
+    #[inline(never)]
     pub unsafe fn GetIntegerv(pname: GLenum, params: *GLint) {
         glGetIntegerv(pname, params)
     }

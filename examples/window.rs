@@ -13,25 +13,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+extern mod native;
 extern mod glfw;
 
 use std::libc;
 
 #[start]
 fn start(argc: int, argv: **u8) -> int {
-    std::rt::start_on_main_thread(argc, argv, main)
+    native::start(argc, argv, main)
 }
 
 fn main() {
-    glfw::set_error_callback(error_callback);
+    glfw::set_error_callback(~ErrorContext);
 
     do glfw::start {
-        let window = glfw::Window::create(400, 400, "English 日本語 русский язык 官話", glfw::Windowed)
+        let window = glfw::Window::create(300, 300, "Hello this is window", glfw::Windowed)
             .expect("Failed to create GLFW window.");
 
+        window.set_key_callback(~KeyContext);
         window.make_context_current();
-        window.set_key_callback(key_callback);
-        glfw::set_swap_interval(1);
 
         while !window.should_close() {
             glfw::poll_events();
@@ -39,12 +39,18 @@ fn main() {
     }
 }
 
-fn key_callback(window: &glfw::Window, key: glfw::Key, _: libc::c_int, action: glfw::Action, _: glfw::Modifiers) {
-    if action == glfw::Press && key == glfw::KeyEscape {
-        window.set_should_close(true);
+struct ErrorContext;
+impl glfw::ErrorCallback for ErrorContext {
+    fn call(&self, _: glfw::Error, description: ~str) {
+        println!("GLFW Error: {:s}", description);
     }
 }
 
-fn error_callback(_: glfw::Error, description: ~str) {
-    println!("GLFW Error: {:s}", description);
+struct KeyContext;
+impl glfw::KeyCallback for KeyContext {
+    fn call(&self, window: &glfw::Window, key: glfw::Key, _: libc::c_int, action: glfw::Action, _: glfw::Modifiers) {
+        if action == glfw::Press && key == glfw::KeyEscape {
+            window.set_should_close(true);
+        }
+    }
 }
