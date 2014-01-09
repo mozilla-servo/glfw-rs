@@ -4,15 +4,23 @@ RUSTC ?= rustc
 RUSTFLAGS ?=
 
 RUST_SRC = \
-	$(addprefix src/glfw/,\
+	$(addprefix src/,\
 		ffi.rs \
-		extfn.rs)
+		callbacks.rs)
+
+UNAME=$(shell uname)
+ifeq ($(UNAME),Darwin)
+LDFLAGS = -L ../glfw -lglfw -framework Cocoa -framework OpenGL -framework IOKit -framework CoreFoundation -framework QuartzCore
+endif
+ifeq ($(UNAME),Linux)
+LDFLAGS = -L ../glfw -lglfw -lX11 -lXrandr -lXi -lXxf86vm -lGL
+endif
 
 .PHONY: all
 all: libglfwrs.dummy
 
-libglfwrs.dummy: src/glfw/lib.rs $(RUST_SRC)
-	$(RUSTC) $(RUSTFLAGS) -L ../glfw $< --out-dir .
+libglfwrs.dummy: src/lib.rs $(RUST_SRC)
+	$(RUSTC) $(RUSTFLAGS) --link-args="$(LDFLAGS)" $< --out-dir . --lib
 	touch $@
 
 .PHONY: check
