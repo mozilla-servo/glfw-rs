@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # Copyright 2013 The GLFW-RS Developers. For a full listing of the authors,
 # refer to the AUTHORS file at the top-level directory of this distribution.
 #
@@ -13,9 +15,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_custom_target(
-    lib ALL 
-    COMMAND mkdir -p ${GLFW_RS_LIB_DIR} && ${RUSTC_COMPILER}
-        --link-args="${GLFW_STATIC_LDFLAGS}" --out-dir ${GLFW_RS_LIB_DIR}
-        ${CMAKE_CURRENT_SOURCE_DIR}/lib.rs
-)
+UNAME=$(uname)
+case $UNAME in
+    "Linux" | "FreeBSD" | "OpenBSD" | "Darwin")
+        pkg-config --static --libs-only-l --libs-only-other glfw3
+    ;;
+    *)
+        case $(uname -o) in
+            "Cygwin" | "Msys")
+                echo -lglfw3 -lopengl32 -lgdi32
+            ;;
+            *)
+                echo "Unsuppported platform: $UNAME";
+                exit 1
+            ;;
+        esac
+    ;;
+esac

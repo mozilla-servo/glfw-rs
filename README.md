@@ -1,13 +1,13 @@
 <!--
     Copyright 2013 The GLFW-RS Developers. For a full listing of the authors,
     refer to the AUTHORS file at the top-level directory of this distribution.
-    
+
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
     You may obtain a copy of the License at
-    
+
         http://www.apache.org/licenses/LICENSE-2.0
-    
+
     Unless required by applicable law or agreed to in writing, software
     distributed under the License is distributed on an "AS IS" BASIS,
     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -22,8 +22,8 @@ GLFW bindings and wrapper for The Rust Programming Language.
 ## Example code
 
 ~~~rust
-extern mod native;
-extern mod glfw;
+extern crate native;
+extern crate glfw = "glfw-rs";
 
 #[start]
 fn start(argc: int, argv: **u8) -> int {
@@ -36,7 +36,7 @@ fn main() {
     glfw::set_error_callback(~ErrorContext);
 
     // Initialize the library
-    do glfw::start {
+    glfw::start(proc() {
         // Create a windowed mode window and its OpenGL context
         let window = glfw::Window::create(300, 300, "Hello this is window", glfw::Windowed)
             .expect("Failed to create GLFW window.");
@@ -52,7 +52,7 @@ fn main() {
             // Poll for and process events
             glfw::poll_events();
         }
-    }
+    });
 }
 
 struct ErrorContext;
@@ -63,44 +63,53 @@ impl glfw::ErrorCallback for ErrorContext {
 }
 ~~~
 
+## Prerequisites
+
+To build glfw-rs you will need to [build glfw](http://www.glfw.org/docs/latest/compile.html) using the [BUILD_SHARED_LIBS](http://www.glfw.org/docs/latest/compile.html#compile_options) option.
+
+Once you have built glfw-rs you might encouter the following error when running the examples:
+'error while loading shared libraries: libglfw.so.3: ... '
+
+Read the last part of [this article](http://www.brandonfoltz.com/2012/12/compile-glfw-on-ubuntu-and-fix-libglfw-so-cannot-open-error/) for information on how to fix this.
+
+
 ## Compilation
 
-You will need [CMake](http://www.cmake.org) to set up glfw-rs for building.
-
-First setup your build directory:
+You can use [cargo-lite](https://github.com/cmr/cargo-lite):
 
 ~~~
-git clone https://github.com/bjz/glfw-rs.git
-cd glfw-rs
-mkdir build
-cd build
-cmake ..
+cargo-lite.py install --git https://github.com/bjz/glfw-rs.git glfw-rs
 ~~~
 
-### Building everything
+Or use make manually to build the library and docs:
 
 ~~~
-make 
+make
 ~~~
 
-### Building the library
-
-~~~
-make lib
-~~~
-
-### Building the examples
+To build the examples:
 
 ~~~
 make examples
 ~~~
 
-Or to build a single example:
+Or a specific example:
 
 ~~~
-make <example-name>
+make src/examples/window.rs
 ~~~
 
+## Installing
+
+~~~
+make install
+~~~
+
+To install to a custom location, override the `INSTALL_DIR` variable:
+
+~~~
+make install INSTALL_DIR=custom/location
+~~~
 
 ## FAQ
 
@@ -121,6 +130,7 @@ or the [OpenGL-ES bindings](https://github.com/mozilla-servo/rust-opengles).
 - [Jeaye/q3](https://github.com/Jeaye/q3)
 - [cyndis/rsmc](https://github.com/cyndis/rsmc/)
 - [mozilla/servo](https://github.com/mozilla/servo)
+- [ozkriff/marauder](https://github.com/ozkriff/marauder/)
 
 ## Support
 

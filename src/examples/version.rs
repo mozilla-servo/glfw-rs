@@ -13,29 +13,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-extern mod native;
-extern mod glfw;
-
-#[start]
-fn start(argc: int, argv: **u8) -> int {
-    native::start(argc, argv, main)
-}
+extern crate glfw = "glfw-rs";
 
 fn main() {
-    do glfw::start {
-        glfw::Monitor::get_primary().map(|monitor| {
-                println!("{:s}:", monitor.get_name());
-                println!("    {:s}\n", monitor.get_video_mode().unwrap().to_str());
-        });
-
-        println("Available monitors\n\
-                     ------------------");
-        glfw::Monitor::get_connected().map(|monitor| {
-            println!("{:s}:", monitor.get_name());
-
-            monitor.get_video_modes().map(|mode| {
-                println!("  {:s}", mode.to_str());
-            });
-        });
-    }
+    println!("{:s}", glfw::get_version().to_str());
+    println!("GLFW version: {:s}", glfw::get_version_string());
 }
