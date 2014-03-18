@@ -12,8 +12,9 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-extern mod native;
-extern mod glfw;
+
+extern crate native;
+extern crate glfw = "glfw-rs";
 
 #[start]
 fn start(argc: int, argv: **u8) -> int {
@@ -23,7 +24,7 @@ fn start(argc: int, argv: **u8) -> int {
 fn main() {
     glfw::set_error_callback(~ErrorContext);
 
-    do glfw::start {
+    glfw::start(proc() {
         glfw::window_hint::visible(true);
 
         let window = glfw::Window::create(640, 480, "Defaults", glfw::Windowed)
@@ -55,7 +56,7 @@ fn main() {
         ];
 
         for &(param, ext, name) in gl_params.iter() {
-            if ext.map_default(true, |s| {
+            if ext.map_or(true, |s| {
                 glfw::extension_supported(s)
             }) {
                 let value = 0;
@@ -63,7 +64,7 @@ fn main() {
                 println!("OpenGL {:s}: {}", name, value);
             };
         }
-    }
+    });
 }
 
 struct ErrorContext;

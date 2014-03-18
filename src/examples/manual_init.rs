@@ -13,11 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-extern mod native;
-extern mod glfw;
-
-use std::libc;
-use std::unstable::finally::Finally;
+extern crate native;
+extern crate glfw = "glfw-rs";
 
 #[start]
 fn start(argc: int, argv: **u8) -> int {
@@ -31,18 +28,18 @@ fn main() {
     if glfw::init().is_err() {
         fail!(~"Failed to initialize GLFW");
     } else {
-        (||{
-            let window = glfw::Window::create(300, 300, "Hello this is window", glfw::Windowed)
-                .expect("Failed to create GLFW window.");
+        let window = glfw::Window::create(300, 300, "Hello this is window", glfw::Windowed)
+            .expect("Failed to create GLFW window.");
 
-            window.set_key_callback(~KeyContext);
-            window.make_context_current();
+        window.set_key_polling(true);
+        window.make_context_current();
 
-            while !window.should_close() {
-                glfw::poll_events();
+        while !window.should_close() {
+            glfw::poll_events();
+            for (_, event) in window.flush_events() {
+                handle_window_event(&window, event);
             }
-        // Use `finally` to ensure that `glfw::terminate` is called even if a failure occurs
-        }).finally(glfw::terminate);
+        }
     }
 }
 
@@ -53,11 +50,11 @@ impl glfw::ErrorCallback for ErrorContext {
     }
 }
 
-struct KeyContext;
-impl glfw::KeyCallback for KeyContext {
-    fn call(&self, window: &glfw::Window, key: glfw::Key, _: libc::c_int, action: glfw::Action, _: glfw::Modifiers) {
-        if action == glfw::Press && key == glfw::KeyEscape {
-            window.set_should_close(true);
+fn handle_window_event(window: &glfw::Window, event: glfw::WindowEvent) {
+    match event {
+        glfw::KeyEvent(glfw::KeyEscape, _, glfw::Press, _) => {
+            window.set_should_close(true)
         }
+        _ => {}
     }
 }
