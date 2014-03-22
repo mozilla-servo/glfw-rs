@@ -22,6 +22,9 @@
 #[feature(globs)];
 #[feature(macro_rules)];
 
+#[feature(phase)];
+#[phase(syntax, link)] extern crate log;
+
 // TODO: Document differences between GLFW and glfw-rs
 
 extern crate semver;
