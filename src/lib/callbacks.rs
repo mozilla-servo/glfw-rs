@@ -54,7 +54,7 @@ pub fn set_monitor_callback<Cb: MonitorCallback + Send>(callback: ~Cb, f: |ffi::
     f(monitor_callback);
 }
 
-unsafe fn get_chan<'a>(window: &'a *ffi::GLFWwindow) -> &'a Chan<(f64, WindowEvent)> {
+unsafe fn get_chan<'a>(window: &'a *ffi::GLFWwindow) -> &'a Sender<(f64, WindowEvent)> {
     cast::transmute(ffi::glfwGetWindowUserPointer(*window))
 }
 

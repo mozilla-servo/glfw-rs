@@ -28,7 +28,7 @@ extern crate semver;
 extern crate sync;
 
 use std::cast;
-use std::comm::{Port, Chan, Data};
+use std::comm::{Receiver, channel, Data};
 use std::fmt;
 use std::libc::*;
 use std::ptr;
@@ -728,7 +728,7 @@ pub enum WindowEvent {
 }
 
 pub struct WindowEvents<'a> {
-    priv event_port: &'a Port<(f64, WindowEvent)>,
+    priv event_port: &'a Receiver<(f64, WindowEvent)>,
 }
 
 impl<'a> Iterator<(f64, WindowEvent)> for WindowEvents<'a> {
@@ -738,7 +738,7 @@ impl<'a> Iterator<(f64, WindowEvent)> for WindowEvents<'a> {
 }
 
 pub struct FlushedWindowEvents<'a> {
-    priv event_port: &'a Port<(f64, WindowEvent)>,
+    priv event_port: &'a Receiver<(f64, WindowEvent)>,
 }
 
 impl<'a> Iterator<(f64, WindowEvent)> for FlushedWindowEvents<'a> {
@@ -753,7 +753,7 @@ impl<'a> Iterator<(f64, WindowEvent)> for FlushedWindowEvents<'a> {
 /// A struct that wraps a `*GLFWwindow` handle.
 pub struct Window {
     ptr: *ffi::GLFWwindow,
-    event_port: Port<(f64, WindowEvent)>,
+    event_port: Receiver<(f64, WindowEvent)>,
     is_shared: bool,
 }
 
@@ -794,7 +794,7 @@ impl Window {
         if ptr.is_null() {
             None
         } else {
-            let (port, chan) = Chan::new();
+            let (chan, port) = channel();
             unsafe { ffi::glfwSetWindowUserPointer(ptr, cast::transmute(~chan)); }
             Some(Window {
                 ptr: ptr,
@@ -1201,7 +1201,7 @@ impl Drop for Window {
         }
         if !self.ptr.is_null() {
             unsafe {
-                let _: ~Chan<(f64, WindowEvent)> = cast::transmute(ffi::glfwGetWindowUserPointer(self.ptr));
+                let _: ~Sender<(f64, WindowEvent)> = cast::transmute(ffi::glfwGetWindowUserPointer(self.ptr));
             }
         }
     }
