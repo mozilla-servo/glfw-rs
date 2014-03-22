@@ -32,8 +32,8 @@ use std::comm::{Port, Chan, Data};
 use std::fmt;
 use std::libc::*;
 use std::ptr;
+use std::slice;
 use std::str;
-use std::vec;
 use semver::Version;
 
 pub mod ffi;
@@ -368,7 +368,7 @@ impl Monitor {
         unsafe {
             let mut count = 0;
             let ptr = ffi::glfwGetMonitors(&mut count);
-            vec::from_buf(ptr, count as uint).map(|&m| Monitor { ptr: m })
+            slice::from_buf(ptr, count as uint).map(|&m| Monitor { ptr: m })
         }
     }
 
@@ -409,7 +409,7 @@ impl Monitor {
         unsafe {
             let mut count = 0;
             let ptr = ffi::glfwGetVideoModes(self.ptr, &mut count);
-            vec::from_buf(ptr, count as uint).map(VidMode::from_glfw_vid_mode)
+            slice::from_buf(ptr, count as uint).map(VidMode::from_glfw_vid_mode)
         }
     }
 
@@ -430,9 +430,9 @@ impl Monitor {
         unsafe {
             let llramp = *ffi::glfwGetGammaRamp(self.ptr);
             GammaRamp {
-                red:    vec::from_buf(llramp.red,   llramp.size as uint),
-                green:  vec::from_buf(llramp.green, llramp.size as uint),
-                blue:   vec::from_buf(llramp.blue,  llramp.size as uint),
+                red:    slice::from_buf(llramp.red,   llramp.size as uint),
+                green:  slice::from_buf(llramp.green, llramp.size as uint),
+                blue:   slice::from_buf(llramp.blue,  llramp.size as uint),
             }
         }
     }
@@ -1249,7 +1249,7 @@ impl Joystick {
         unsafe {
             let mut count = 0;
             let ptr = ffi::glfwGetJoystickAxes(*self as c_int, &mut count);
-            vec::from_buf(ptr, count as uint).map(|&a| a as f32)
+            slice::from_buf(ptr, count as uint).map(|&a| a as f32)
         }
     }
 
@@ -1258,7 +1258,7 @@ impl Joystick {
         unsafe {
             let mut count = 0;
             let ptr = ffi::glfwGetJoystickButtons(*self as c_int, &mut count);
-            vec::from_buf(ptr, count as uint).map(|&b| b as c_int)
+            slice::from_buf(ptr, count as uint).map(|&b| b as c_int)
         }
     }
 
