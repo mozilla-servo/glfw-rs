@@ -14,7 +14,9 @@
 // limitations under the License.
 
 extern crate native;
-extern crate glfw = "glfw-rs";
+extern crate glfw;
+
+use glfw::Context;
 
 #[start]
 fn start(argc: int, argv: **u8) -> int {
@@ -22,29 +24,20 @@ fn start(argc: int, argv: **u8) -> int {
 }
 
 fn main() {
-    glfw::set_error_callback(~ErrorContext);
+    let glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
 
-    glfw::start(proc() {
-        let window = glfw::Window::create(400, 400, "English 日本語 русский язык 官話", glfw::Windowed)
-            .expect("Failed to create GLFW window.");
+    let (window, events) = glfw.create_window(400, 400, "English 日本語 русский язык 官話", glfw::Windowed)
+        .expect("Failed to create GLFW window.");
 
-        window.set_key_polling(true);
-        window.make_context_current();
-        glfw::set_swap_interval(1);
+    window.set_key_polling(true);
+    window.make_current();
+    glfw.set_swap_interval(1);
 
-        while !window.should_close() {
-            glfw::poll_events();
-            for (_, event) in window.flush_events() {
-                handle_window_event(&window, event);
-            }
+    while !window.should_close() {
+        glfw.poll_events();
+        for (_, event) in glfw::flush_messages(&events) {
+            handle_window_event(&window, event);
         }
-    });
-}
-
-struct ErrorContext;
-impl glfw::ErrorCallback for ErrorContext {
-    fn call(&self, _: glfw::Error, description: ~str) {
-        println!("GLFW Error: {:s}", description);
     }
 }
 

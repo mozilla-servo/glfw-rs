@@ -14,7 +14,9 @@
 // limitations under the License.
 
 extern crate native;
-extern crate glfw = "glfw-rs";
+extern crate glfw;
+
+use glfw::Context;
 
 #[start]
 fn start(argc: int, argv: **u8) -> int {
@@ -22,52 +24,43 @@ fn start(argc: int, argv: **u8) -> int {
 }
 
 fn main() {
-    glfw::set_error_callback(~ErrorContext);
+    let glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
 
-    glfw::start(proc() {
-        glfw::window_hint::resizable(true);
+    glfw.window_hint(glfw::Resizable(true));
 
-        let window = glfw::Window::create(800, 600, "Hello, I am a window.", glfw::Windowed)
-            .expect("Failed to create GLFW window.");
+    let (window, events) = glfw.create_window(800, 600, "Hello, I am a window.", glfw::Windowed)
+        .expect("Failed to create GLFW window.");
 
-        window.set_sticky_keys(true);
+    window.set_sticky_keys(true);
 
-        // Polling of events can be turned on and off by the specific event type
-        window.set_pos_polling(true);
-        window.set_all_polling(true);
-        window.set_size_polling(true);
-        window.set_close_polling(true);
-        window.set_refresh_polling(true);
-        window.set_focus_polling(true);
-        window.set_iconify_polling(true);
-        window.set_framebuffer_size_polling(true);
-        window.set_key_polling(true);
-        window.set_char_polling(true);
-        window.set_mouse_button_polling(true);
-        window.set_cursor_pos_polling(true);
-        window.set_cursor_enter_polling(true);
-        window.set_scroll_polling(true);
+    // Polling of events can be turned on and off by the specific event type
+    window.set_pos_polling(true);
+    window.set_all_polling(true);
+    window.set_size_polling(true);
+    window.set_close_polling(true);
+    window.set_refresh_polling(true);
+    window.set_focus_polling(true);
+    window.set_iconify_polling(true);
+    window.set_framebuffer_size_polling(true);
+    window.set_key_polling(true);
+    window.set_char_polling(true);
+    window.set_mouse_button_polling(true);
+    window.set_cursor_pos_polling(true);
+    window.set_cursor_enter_polling(true);
+    window.set_scroll_polling(true);
 
-        // Alternatively, all event types may be set to poll at once. Note that
-        // in this example, this call is redundant as all events have been set
-        // to poll in the above code.
-        window.set_all_polling(true);
+    // Alternatively, all event types may be set to poll at once. Note that
+    // in this example, this call is redundant as all events have been set
+    // to poll in the above code.
+    window.set_all_polling(true);
 
-        window.make_context_current();
+    window.make_current();
 
-        while !window.should_close() {
-            glfw::poll_events();
-            for event in window.flush_events() {
-                handle_window_event(&window, event);
-            }
+    while !window.should_close() {
+        glfw.poll_events();
+        for event in glfw::flush_messages(&events) {
+            handle_window_event(&window, event);
         }
-    });
-}
-
-struct ErrorContext;
-impl glfw::ErrorCallback for ErrorContext {
-    fn call(&self, _: glfw::Error, description: ~str) {
-        println!("GLFW Error: {}", description);
     }
 }
 
@@ -83,7 +76,7 @@ fn handle_window_event(window: &glfw::Window, (time, event): (f64, glfw::WindowE
         glfw::IconifyEvent(false)           => println!("Time: {}, Window was maximised.", time),
         glfw::FramebufferSizeEvent(w, h)    => println!("Time: {}, Framebuffer size: ({}, {})", time, w, h),
         glfw::CharEvent(character)          => println!("Time: {}, Character: {}", time, character),
-        glfw::MouseButtonEvent(btn, action, mods) => println!("Time: {}, Button: {}, Action: {}, Modifiers: [{}]", time, btn, action, mods),
+        glfw::MouseButtonEvent(btn, action, mods) => println!("Time: {}, Button: {}, Action: {}, Modifiers: [{}]", time, glfw::ShowAliases(btn), action, mods),
         glfw::CursorPosEvent(xpos, ypos)    => window.set_title(format!("Time: {}, Cursor position: ({}, {})", time, xpos, ypos)),
         glfw::CursorEnterEvent(true)        => println!("Time: {}, Cursor entered window.", time),
         glfw::CursorEnterEvent(false)       => println!("Time: {}, Cursor left window.", time),

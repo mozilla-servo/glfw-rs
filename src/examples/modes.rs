@@ -14,7 +14,7 @@
 // limitations under the License.
 
 extern crate native;
-extern crate glfw = "glfw-rs";
+extern crate glfw;
 
 #[start]
 fn start(argc: int, argv: **u8) -> int {
@@ -22,15 +22,19 @@ fn start(argc: int, argv: **u8) -> int {
 }
 
 fn main() {
-    glfw::start(proc() {
-        let _ = glfw::Monitor::get_primary().map(|monitor| {
+    let glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
+
+    glfw.with_primary_monitor(|monitor| {
+        let _ = monitor.map(|monitor| {
             println!("{}:", monitor.get_name());
             println!("    {}\n", monitor.get_video_mode().unwrap());
         });
+    });
 
-        println!("Available monitors\n\
-                  ------------------");
-        for monitor in glfw::Monitor::get_connected().iter() {
+    println!("Available monitors\n\
+              ------------------");
+    glfw.with_connected_monitors(|monitors| {
+        for monitor in monitors.iter() {
             println!("{}:", monitor.get_name());
             for mode in monitor.get_video_modes().iter() {
                 println!("  {}", *mode);
