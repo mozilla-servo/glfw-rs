@@ -13,61 +13,105 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Private functions and items to be used with the high-level library wrapper.
+//! Private callback support functions.
 
+use libc::{c_double, c_int, c_uint};
 use std::cast;
-use std::libc::*;
-use std::local_data;
-use std::str;
 
 use super::*;
 
-// Global callbacks
+macro_rules! callback(
+    (
+        type Args = ($($arg:ident: $arg_ty:ty),*);
+        type Callback = $Callback:ident;
+        let ext_set = $ext_set:expr;
+        fn callback($($ext_arg:ident: $ext_arg_ty:ty),*) $call:expr
+    ) => (
+        local_data_key!(CALLBACK_KEY: ~Object<Args>:'static)
 
-static error_callback_tls_key: local_data::Key<~ErrorCallback> = &local_data::Key;
-static monitor_callback_tls_key: local_data::Key<~MonitorCallback> = &local_data::Key;
+        type Args = ($($arg_ty),*,);
 
-pub extern "C" fn error_callback(error: c_int, description: *c_char) {
-    local_data::get(error_callback_tls_key, (|data| {
-        data.as_ref().map(|&ref cb| {
-            unsafe { cb.call(cast::transmute(error), str::raw::from_c_str(description)) }
-        });
-    }));
+        trait Object<T> {
+            fn call(&self, args: T);
+        }
+
+        impl<UserData> Object<Args> for ::Callback<fn($($arg_ty),*, &UserData), UserData> {
+            fn call(&self, ($($arg),*,): Args) {
+                (self.f)($($arg),*, &self.data);
+            }
+        }
+
+        pub fn set<UserData: 'static>(f: ::$Callback<UserData>) {
+            ::std::local_data::set(CALLBACK_KEY, ~f as ~Object<Args>:'static);
+            ($ext_set)(Some(callback));
+        }
+
+        pub fn unset() {
+            ::std::local_data::pop(CALLBACK_KEY);
+            ($ext_set)(None);
+        }
+
+        extern "C" fn callback($($ext_arg: $ext_arg_ty),*) {
+            ::std::local_data::get(CALLBACK_KEY, |data| {
+                match data {
+                    Some(cb) => unsafe { cb.call($call) },
+                    _ => {}
+                }
+            });
+        }
+    )
+)
+
+pub mod error {
+    use libc::{c_int, c_char};
+    use std::cast;
+    use std::str;
+
+    callback!(
+        type Args = (error: ::Error, description: ~str);
+        type Callback = ErrorCallback;
+        let ext_set = |cb| unsafe { ::ffi::glfwSetErrorCallback(cb) };
+        fn callback(error: c_int, description: *c_char) {
+            (cast::transmute(error), str::raw::from_c_str(description))
+        }
+    )
 }
 
-pub fn set_error_callback<Cb: ErrorCallback + Send>(callback: ~Cb, f: |ffi::GLFWerrorfun| ) {
-    local_data::set(error_callback_tls_key, callback as ~ErrorCallback);
-    f(error_callback);
+pub mod monitor {
+    use libc::{c_int};
+    use std::cast;
+    use std::kinds::marker;
+
+    callback!(
+        type Args = (monitor: ::Monitor, event: ::MonitorEvent);
+        type Callback = MonitorCallback;
+        let ext_set = |cb| unsafe { ::ffi::glfwSetMonitorCallback(cb) };
+        fn callback(monitor: *::ffi::GLFWmonitor, event: c_int) {
+            let monitor = ::Monitor {
+                ptr: monitor,
+                no_copy: marker::NoCopy,
+                no_send: marker::NoSend,
+                no_share: marker::NoShare,
+            };
+            (monitor, cast::transmute(event))
+        }
+    )
 }
 
-
-pub extern "C" fn monitor_callback(monitor: *ffi::GLFWmonitor, event: c_int) {
-    local_data::get(monitor_callback_tls_key, (|data| {
-        data.as_ref().map(|&ref cb| {
-            unsafe { cb.call(&Monitor { ptr: monitor }, cast::transmute(event)) }
-        });
-    }));
-}
-
-pub fn set_monitor_callback<Cb: MonitorCallback + Send>(callback: ~Cb, f: |ffi::GLFWmonitorfun| ) {
-    local_data::set(monitor_callback_tls_key, callback as ~MonitorCallback);
-    f(monitor_callback);
-}
-
-unsafe fn get_chan<'a>(window: &'a *ffi::GLFWwindow) -> &'a Chan<(f64, WindowEvent)> {
+unsafe fn get_sender<'a>(window: &'a *ffi::GLFWwindow) -> &'a Sender<(f64, WindowEvent)> {
     cast::transmute(ffi::glfwGetWindowUserPointer(*window))
 }
 
 macro_rules! window_callback(
     (fn $name:ident () => $event:ident) => (
-         pub extern "C" fn $name(window: *ffi::GLFWwindow) {
-            unsafe { get_chan(&window).send((get_time(), $event)); }
-         }
+        pub extern "C" fn $name(window: *ffi::GLFWwindow) {
+            unsafe { get_sender(&window).send((ffi::glfwGetTime() as f64, $event)); }
+        }
      );
     (fn $name:ident ($($ext_arg:ident: $ext_arg_ty:ty),*) => $event:ident($($arg_conv:expr),*)) => (
-         pub extern "C" fn $name(window: *ffi::GLFWwindow $(, $ext_arg: $ext_arg_ty)*) {
-            unsafe { get_chan(&window).send((get_time(), $event($($arg_conv),*))); }
-         }
+        pub extern "C" fn $name(window: *ffi::GLFWwindow $(, $ext_arg: $ext_arg_ty)*) {
+            unsafe { get_sender(&window).send((ffi::glfwGetTime() as f64, $event($($arg_conv),*))); }
+        }
      );
 )
 

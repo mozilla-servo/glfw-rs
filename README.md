@@ -19,11 +19,13 @@
 
 GLFW bindings and wrapper for The Rust Programming Language.
 
-## Example code
+## Example
 
 ~~~rust
 extern crate native;
-extern crate glfw = "glfw-rs";
+extern crate glfw;
+
+use glfw::Context;
 
 #[start]
 fn start(argc: int, argv: **u8) -> int {
@@ -32,36 +34,38 @@ fn start(argc: int, argv: **u8) -> int {
 }
 
 fn main() {
-    // Set up an error callback
-    glfw::set_error_callback(~ErrorContext);
+    let glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
 
-    // Initialize the library
-    glfw::start(proc() {
-        // Create a windowed mode window and its OpenGL context
-        let window = glfw::Window::create(300, 300, "Hello this is window", glfw::Windowed)
-            .expect("Failed to create GLFW window.");
+    // Create a windowed mode window and its OpenGL context
+    let window = glfw.create_window(300, 300, "Hello this is window", glfw::Windowed)
+        .expect("Failed to create GLFW window.");
 
-        // Make the window's context current
-        window.make_context_current();
+    // Make the window's context current
+    window.make_context_current();
 
-        // Loop until the user closes the window
-        while !window.should_close() {
-            // Swap front and back buffers
-            window.swap_buffers();
+    // Loop until the user closes the window
+    while !window.should_close() {
+        // Swap front and back buffers
+        window.swap_buffers();
 
-            // Poll for and process events
-            glfw::poll_events();
+        // Poll for and process events
+        glfw.poll_events();
+        for (_, event) in glfw::flush_messages(&events) {
+            println!("{}", event);
+            match event {
+                glfw::KeyEvent(glfw::KeyEscape, _, glfw::Press, _) => {
+                    window.set_should_close(true)
+                },
+                _ => {},
+            }
         }
-    });
-}
-
-struct ErrorContext;
-impl glfw::ErrorCallback for ErrorContext {
-    fn call(&self, _: glfw::Error, description: ~str) {
-        println!("GLFW Error: {:s}", description);
     }
 }
 ~~~
+
+## Documentation
+
+The [API docs](http://rust-ci.org/bjz/glfw-rs/doc/glfw/) are hosted on Rust CI.
 
 ## Prerequisites
 

@@ -13,30 +13,89 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#[crate_type = "lib"];
-#[crate_type = "rlib"];
-#[crate_type = "dylib"];
-#[crate_id = "github.com/bjz/glfw-rs#glfw-rs:0.1"];
-#[comment = "Bindings and wrapper functions for glfw3."];
+#![crate_type = "lib"]
+#![crate_type = "rlib"]
+#![crate_type = "dylib"]
+#![crate_id = "github.com/bjz/glfw-rs#glfw:0.1"]
+#![comment = "Bindings and wrapper functions for glfw3."]
 
-#[feature(globs)];
-#[feature(macro_rules)];
+#![feature(globs)]
+#![feature(macro_rules)]
+#![feature(phase)]
+
+//! An ideomatic wrapper for the GLFW library.
+//!
+//! # Example
+//!
+//! ~~~rust
+//! extern crate native;
+//! extern crate glfw;
+//!
+//! use glfw::Context;
+//! 
+//! #[start]
+//! fn start(argc: int, argv: **u8) -> int {
+//!     // Run GLFW on the main thread
+//!     native::start(argc, argv, main)
+//! }
+//! 
+//! fn main() {
+//!    let glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
+//! 
+//!     // Create a windowed mode window and its OpenGL context
+//!     let window = glfw.create_window(300, 300, "Hello this is window", glfw::Windowed)
+//!         .expect("Failed to create GLFW window.");
+//! 
+//!     // Make the window's context current
+//!     window.make_current();
+//! 
+//!     // Loop until the user closes the window
+//!     while !window.should_close() {
+//!         // Swap front and back buffers
+//!         window.swap_buffers();
+//! 
+//!         // Poll for and process events
+//!         glfw.poll_events();
+//!         for (_, event) in glfw::flush_messages(&events) {
+//!             println!("{}", event);
+//!             match event {
+//!                 glfw::KeyEvent(glfw::KeyEscape, _, glfw::Press, _) => {
+//!                     window.set_should_close(true)
+//!                 },
+//!                 _ => {},
+//!             }
+//!         }
+//!     }
+//! }
+//! ~~~
 
 // TODO: Document differences between GLFW and glfw-rs
 
 extern crate semver;
 extern crate sync;
+extern crate libc;
+#[phase(syntax, link)] extern crate log;
 
+use libc::{c_double, c_float, c_int};
+use libc::{c_uint, c_ushort, c_void};
 use std::cast;
-use std::comm::{Port, Chan, Data};
+use std::comm::{channel, Receiver, Sender, Data};
 use std::fmt;
-use std::libc::*;
+use std::kinds::marker;
 use std::ptr;
 use std::str;
-use std::vec;
+use std::slice;
 use semver::Version;
 
+/// Alias to `MouseButton1`, supplied for improved clarity.
+pub use MouseButtonLeft     = self::MouseButton1;
+/// Alias to `MouseButton2`, supplied for improved clarity.
+pub use MouseButtonRight    = self::MouseButton2;
+/// Alias to `MouseButton3`, supplied for improved clarity.
+pub use MouseButtonMiddle   = self::MouseButton3;
+
 pub mod ffi;
+
 mod callbacks;
 
 #[cfg(target_os = "linux")]
@@ -57,16 +116,18 @@ extern { }
 #[link(name = "QuartzCore", kind = "framework")]
 extern { }
 
+/// Input actions.
 #[repr(C)]
-#[deriving(Clone, Eq, Hash, Show)]
+#[deriving(Clone, Eq, Hash, Show, TotalEq)]
 pub enum Action {
     Release                      = ffi::RELEASE,
     Press                        = ffi::PRESS,
     Repeat                       = ffi::REPEAT,
 }
 
+/// Input keys.
 #[repr(C)]
-#[deriving(Clone, Eq, Hash, Show)]
+#[deriving(Clone, Eq, Hash, Show, TotalEq)]
 pub enum Key {
     KeySpace                    = ffi::KEY_SPACE,
     KeyApostrophe               = ffi::KEY_APOSTROPHE,
@@ -191,15 +252,17 @@ pub enum Key {
     KeyMenu                     = ffi::KEY_MENU,
 }
 
+/// Mouse buttons. The `MouseButtonLeft`, `MouseButtonRight`, and
+/// `MouseButtonMiddle` aliases are supplied for convenience.
 #[repr(C)]
-#[deriving(Clone, Eq, Hash, Show)]
+#[deriving(Clone, Eq, Hash, Show, TotalEq)]
 pub enum MouseButton {
-    MouseButtonLeft             = ffi::MOUSE_BUTTON_LEFT,
-    MouseButtonRight            = ffi::MOUSE_BUTTON_RIGHT,
-    MouseButtonMiddle           = ffi::MOUSE_BUTTON_MIDDLE,
-    // MouseButton1                = ffi::MOUSE_BUTTON_1,
-    // MouseButton2                = ffi::MOUSE_BUTTON_2,
-    // MouseButton3                = ffi::MOUSE_BUTTON_3,
+    /// The left mouse button. A `MouseButtonLeft` alias is provided to improve clarity.
+    MouseButton1                = ffi::MOUSE_BUTTON_1,
+    /// The right mouse button. A `MouseButtonRight` alias is provided to improve clarity.
+    MouseButton2                = ffi::MOUSE_BUTTON_2,
+    /// The middle mouse button. A `MouseButtonMiddle` alias is provided to improve clarity.
+    MouseButton3                = ffi::MOUSE_BUTTON_3,
     MouseButton4                = ffi::MOUSE_BUTTON_4,
     MouseButton5                = ffi::MOUSE_BUTTON_5,
     MouseButton6                = ffi::MOUSE_BUTTON_6,
@@ -207,10 +270,34 @@ pub enum MouseButton {
     MouseButton8                = ffi::MOUSE_BUTTON_8,
 }
 
-// pub static MouseButtonLeft           : MouseButton = MouseButton1;
-// pub static MouseButtonRight          : MouseButton = MouseButton2;
-// pub static MouseButtonMiddle         : MouseButton = MouseButton3;
+/// Formats the type using aliases rather than the default variant names.
+///
+/// # Example
+///
+/// ~~~rust
+/// assert_eq(format!("{}", glfw::MouseButtonLeft), ~"MouseButton1");
+/// assert_eq(format!("{}", glfw::ShowAliases(glfw::MouseButtonLeft)), ~"MouseButtonLeft");
+/// ~~~
+pub struct ShowAliases<T>(pub T);
 
+impl fmt::Show for ShowAliases<MouseButton> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let ShowAliases(button) = *self;
+        match button {
+            MouseButtonLeft     => write!(f.buf, "MouseButtonLeft"),
+            MouseButtonRight    => write!(f.buf, "MouseButtonRight"),
+            MouseButtonMiddle   => write!(f.buf, "MouseButtonMiddle"),
+            button              => button.fmt(f),
+        }
+    }
+}
+
+pub struct Callback<Fn, UserData> {
+    pub f: Fn,
+    pub data: UserData,
+}
+
+/// Tokens corresponding to various error types.
 #[repr(C)]
 #[deriving(Clone, Eq, Hash, Show)]
 pub enum Error {
@@ -225,30 +312,30 @@ pub enum Error {
     FormatUnavailable           = ffi::FORMAT_UNAVAILABLE,
 }
 
+/// An error callback. This can be supplied with some user data to be passed to
+/// the callback function when it is triggered.
+pub type ErrorCallback<UserData> = Callback<fn(Error, ~str, &UserData), UserData>;
 
-#[repr(C)]
-#[deriving(Clone, Eq, Hash, Show)]
-pub enum ClientApi {
-    OpenGlApi                   = ffi::OPENGL_API,
-    OpenGlEsApi                 = ffi::OPENGL_ES_API,
+/// The function to be used with the `FAIL_ON_ERRORS` callback.
+pub fn fail_on_errors(_: Error, description: ~str, _: &()) {
+    fail!("GLFW Error: {}", description);
 }
 
-#[repr(C)]
-#[deriving(Clone, Eq, Hash, Show)]
-pub enum ContextRobustness {
-    NoRobustness                = ffi::NO_ROBUSTNESS,
-    NoResetNotification         = ffi::NO_RESET_NOTIFICATION,
-    LoseContextOnReset          = ffi::LOSE_CONTEXT_ON_RESET,
+/// A callback that triggers a task failure when an error is encountered.
+pub static FAIL_ON_ERRORS: Option<ErrorCallback<()>> =
+    Some(Callback { f: fail_on_errors, data: () });
+
+/// The function to be used with the `LOG_ERRORS` callback.
+pub fn log_errors(_: Error, description: ~str, _: &()) {
+    error!("GLFW Error: {}", description);
 }
 
-#[repr(C)]
-#[deriving(Clone, Eq, Hash, Show)]
-pub enum OpenGlProfile {
-    OpenGlAnyProfile            = ffi::OPENGL_ANY_PROFILE,
-    OpenGlCoreProfile           = ffi::OPENGL_CORE_PROFILE,
-    OpenGlCompatProfile         = ffi::OPENGL_COMPAT_PROFILE,
-}
+/// A callback that logs each error as it is encountered without triggering a
+/// task failure.
+pub static LOG_ERRORS: Option<ErrorCallback<()>> =
+    Some(Callback { f: log_errors, data: () });
 
+/// Cursor modes.
 #[repr(C)]
 #[deriving(Clone, Eq, Hash, Show)]
 pub enum CursorMode {
@@ -259,49 +346,384 @@ pub enum CursorMode {
 
 /// Describes a single video mode.
 pub struct VidMode {
-    width:        u32,
-    height:       u32,
-    red_bits:     u32,
-    green_bits:   u32,
-    blue_bits:    u32,
-    refresh_rate: u32,
+    pub width:        u32,
+    pub height:       u32,
+    pub red_bits:     u32,
+    pub green_bits:   u32,
+    pub blue_bits:    u32,
+    pub refresh_rate: u32,
 }
 
 /// Describes the gamma ramp of a monitor.
 pub struct GammaRamp {
-    red:    ~[c_ushort],
-    green:  ~[c_ushort],
-    blue:   ~[c_ushort],
+    pub red:    ~[c_ushort],
+    pub green:  ~[c_ushort],
+    pub blue:   ~[c_ushort],
 }
 
+/// An OpenGL process address.
 pub type GLProc = ffi::GLFWglproc;
+ 
+/// A token from which to call various GLFW functions. It can be obtained by
+/// calling the `init` function. This cannot be sent to other tasks, and should
+/// only be initialized on the main platform thread. Whilst this might make
+/// performing some operations harder, this is to ensure thread safety is enforced
+/// statically. The context can be safely cloned or implicitly copied if need be
+/// for convenience.
+#[deriving(Clone)]
+pub struct Glfw {
+    no_send: marker::NoSend,
+    no_share: marker::NoShare,
+}
 
-/// Initialise glfw. This must be called on the main platform thread.
+/// An error that might be returned when `glfw::init` is called.
+#[deriving(Eq, Show)]
+pub enum InitError {
+    /// The library was already initialized.
+    AlreadyInitialized,
+    /// An internal error occured when trying to initialize the library.
+    InternalInitError,
+}
+
+/// Initializes the GLFW library. This must be called on the main platform
+/// thread.
 ///
 /// Wrapper for `glfwInit`.
-pub fn init() -> Result<(),()> {
+///
+/// # Error callback
+///
+/// An error callback can be set if desired. This allows for the handling of any
+/// errors that occur during initialization. This can subsequently be changed
+/// using the `Glfw::set_error_callback` function.
+///
+/// # Example
+///
+/// ~~~rust
+/// extern crate native;
+/// extern crate glfw;
+/// 
+/// #[start]
+/// fn start(argc: int, argv: **u8) -> int {
+///     // Run GLFW on the main thread
+///     native::start(argc, argv, main)
+/// }
+/// 
+/// fn main() {
+///    let glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
+/// }
+/// ~~~
+///
+/// # Returns
+///
+/// - If initialization was successful a `Glfw` token will be returned along
+///   with a `Receiver` from which errors can be intercepted.
+/// - Subsequent calls to `init` will return `Err(AlreadyInitialized)`.
+/// - If an initialization error occured within the GLFW library
+///   `Err(InternalInitError)` will be returned.
+pub fn init<UserData: 'static>(mut callback: Option<ErrorCallback<UserData>>) -> Result<Glfw, InitError> {
     use sync::one::{Once, ONCE_INIT};
     static mut INIT: Once = ONCE_INIT;
-    let mut is_ok = Err(());
+    let mut result = Err(AlreadyInitialized);
     unsafe {
         INIT.doit(|| {
+            // Initialize the error callback if it was supplied. This is done
+            // before `ffi::glfwInit` because errors could occur during
+            // initialization.
+            match callback.take() {
+                Some(f) => callbacks::error::set(f),
+                None    => callbacks::error::unset(),
+            }
             if ffi::glfwInit() == ffi::TRUE {
-                is_ok = Ok(());
-                std::rt::at_exit(proc() ffi::glfwTerminate());
+                result = Ok(());
+                std::rt::at_exit(proc() {
+                    ffi::glfwTerminate()
+                });
+            } else {
+                result = Err(InternalInitError);
             }
         })
     }
-    is_ok
+    result.map(|_| Glfw {
+        no_send: marker::NoSend,
+        no_share: marker::NoShare,
+    })
 }
 
-/// Initialises GLFW, failing if the initialisation was unsuccessful.
-///
-/// # Parameters
-///
-/// - `f`: to be called after the GLFW is initialised.
-pub fn start(f: proc()) {
-    if init().is_ok() { f() }
-    else { fail!("Failed to initialize GLFW") }
+impl Glfw {
+    /// Sets the error callback, overwriting the previous one stored.
+    ///
+    /// # Example
+    ///
+    /// ~~~rust
+    /// use std::cell::Cell;
+    ///
+    /// fn error_callback(_: glfw::Error, description: ~str, error_count: &Cell<uint>) {
+    ///     error!("GLFW error {}: {}", error_count.get(), description);
+    ///     error_count.set(error_count.get() + 1);
+    /// }
+    ///
+    /// // sets a new callback
+    /// glfw.set_error_callback(Some(
+    ///     glfw::Callback {
+    ///         f: error_callback,
+    ///         data: Cell::new(0),
+    ///     }
+    /// ));
+    ///
+    /// // removes the previously set callback
+    /// glfw.set_error_callback(None);
+    /// ~~~
+    ///
+    /// The `FAIL_ON_ERRORS` and `LOG_ERRORS` callbacks are provided for
+    /// convenience. For example:
+    ///
+    /// ~~~rust
+    /// // triggers a task failure when a GLFW error is encountered.
+    /// glfw.set_error_callback(glfw::FAIL_ON_ERRORS);
+    /// ~~~
+    pub fn set_error_callback<UserData: 'static>(&self, callback: Option<ErrorCallback<UserData>>) {
+        match callback {
+            Some(f) => callbacks::error::set(f),
+            None    => callbacks::error::unset(),
+        }
+    }
+
+    /// Sets the monitor callback, overwriting the previous one stored.
+    pub fn set_monitor_callback<UserData: 'static>(&self, callback: Option<MonitorCallback<UserData>>) {
+        match callback {
+            Some(f) => callbacks::monitor::set(f),
+            None    => callbacks::monitor::unset(),
+        }
+    }
+
+    /// Supplies the primary monitor to the closure provided, if it exists.
+    /// This is usually the monitor where elements like the Windows task bar or
+    /// the OS X menu bar is located.
+    ///
+    /// Wrapper for `glfwGetPrimaryMonitor`.
+    pub fn with_primary_monitor<T>(&self, f: |Option<&Monitor>| -> T) -> T {
+        match unsafe { ffi::glfwGetPrimaryMonitor() } {
+            ptr if ptr.is_null() => f(None),
+            ptr => f(Some(&Monitor {
+                ptr: ptr,
+                no_copy: marker::NoCopy,
+                no_send: marker::NoSend,
+                no_share: marker::NoShare,
+            })),
+        }
+    }
+
+    /// Supplies a vector of the currently connected monitors to the closure
+    /// provided.
+    ///
+    /// Wrapper for `glfwGetMonitors`.
+    pub fn with_connected_monitors<T>(&self, f: |&[Monitor]| -> T) -> T {
+        unsafe {
+            let mut count = 0;
+            let ptr = ffi::glfwGetMonitors(&mut count);
+            f(slice::from_buf(ptr, count as uint).iter().map(|&ptr| {
+                Monitor {
+                    ptr: ptr,
+                    no_copy: marker::NoCopy,
+                    no_send: marker::NoSend,
+                    no_share: marker::NoShare,
+                }
+            }).collect::<~[Monitor]>())
+        }
+    }
+
+    /// This is used to set the window hints for the next call to
+    /// `Glfw::create_window`. The hints can be reset to their default values
+    /// using calling the `Glfw::default_window_hints` function.
+    ///
+    /// Wrapper for `glfwWindowHint`
+    ///
+    /// # OpenGL 3.x and 4.x on Mac OS X
+    ///
+    /// The only OpenGL 3.x and 4.x contexts supported by OS X are
+    /// forward-compatible, core profile contexts.
+    ///
+    /// 10.7 and 10.8 support the following OpenGL versions:
+    ///
+    /// - `glfw::ContextVersion(3, 2)`
+    ///
+    /// 10.9 supports the following OpenGL versions
+    ///
+    /// - `glfw::ContextVersion(3, 2)`
+    /// - `glfw::ContextVersion(3, 3)`
+    /// - `glfw::ContextVersion(4, 1)`
+    ///
+    /// To create an OS X compatible context, the hints should be specified as
+    /// follows:
+    ///
+    /// ~~~rust
+    /// glfw.window_hint(glfw::ContextVersion(3, 2));
+    /// glfw.window_hint(glfw::OpenglForwardCompat(true));
+    /// glfw.window_hint(glfw::OpenglProfile(glfw::OpenGlCoreProfile));
+    /// ~~~
+    pub fn window_hint(&self, hint: WindowHint) {
+        match hint {
+            RedBits(bits)                   => unsafe { ffi::glfwWindowHint(ffi::RED_BITS,              bits as c_int) },
+            GreenBits(bits)                 => unsafe { ffi::glfwWindowHint(ffi::GREEN_BITS,            bits as c_int) },
+            BlueBits(bits)                  => unsafe { ffi::glfwWindowHint(ffi::BLUE_BITS,             bits as c_int) },
+            AlphaBits(bits)                 => unsafe { ffi::glfwWindowHint(ffi::ALPHA_BITS,            bits as c_int) },
+            DepthBits(bits)                 => unsafe { ffi::glfwWindowHint(ffi::DEPTH_BITS,            bits as c_int) },
+            StencilBits(bits)               => unsafe { ffi::glfwWindowHint(ffi::STENCIL_BITS,          bits as c_int) },
+            AccumRedBits(bits)              => unsafe { ffi::glfwWindowHint(ffi::ACCUM_RED_BITS,        bits as c_int) },
+            AccumGreenBits(bits)            => unsafe { ffi::glfwWindowHint(ffi::ACCUM_GREEN_BITS,      bits as c_int) },
+            AccumBlueBits(bits)             => unsafe { ffi::glfwWindowHint(ffi::ACCUM_BLUE_BITS,       bits as c_int) },
+            AccumAlphaBits(bits)            => unsafe { ffi::glfwWindowHint(ffi::ACCUM_ALPHA_BITS,      bits as c_int) },
+            AuxBuffers(num_buffers)         => unsafe { ffi::glfwWindowHint(ffi::AUX_BUFFERS,           num_buffers as c_int) },
+            Stereo(is_stereo)               => unsafe { ffi::glfwWindowHint(ffi::STEREO,                is_stereo as c_int) },
+            Samples(num_samples)            => unsafe { ffi::glfwWindowHint(ffi::SAMPLES,               num_samples as c_int) },
+            SRgbCapable(is_capable)         => unsafe { ffi::glfwWindowHint(ffi::SRGB_CAPABLE,          is_capable as c_int) },
+            RefreshRate(rate)               => unsafe { ffi::glfwWindowHint(ffi::REFRESH_RATE,          rate as c_int) },
+            ClientApi(api)                  => unsafe { ffi::glfwWindowHint(ffi::CLIENT_API,            api as c_int) },
+            ContextVersionMajor(major)      => unsafe { ffi::glfwWindowHint(ffi::CONTEXT_VERSION_MAJOR, major as c_int) },
+            ContextVersionMinor(minor)      => unsafe { ffi::glfwWindowHint(ffi::CONTEXT_VERSION_MINOR, minor as c_int) },
+            ContextVersion(major, minor)    => unsafe { ffi::glfwWindowHint(ffi::CONTEXT_VERSION_MAJOR, major as c_int);
+                                                        ffi::glfwWindowHint(ffi::CONTEXT_VERSION_MINOR, minor as c_int) },
+            ContextRobustness(robustness)   => unsafe { ffi::glfwWindowHint(ffi::CONTEXT_ROBUSTNESS,    robustness as c_int) },
+            OpenglForwardCompat(is_compat)  => unsafe { ffi::glfwWindowHint(ffi::OPENGL_FORWARD_COMPAT, is_compat as c_int) },
+            OpenglDebugContext(is_debug)    => unsafe { ffi::glfwWindowHint(ffi::OPENGL_DEBUG_CONTEXT,  is_debug as c_int) },
+            OpenglProfile(profile)          => unsafe { ffi::glfwWindowHint(ffi::OPENGL_PROFILE,        profile as c_int) },
+            Resizable(is_resizable)         => unsafe { ffi::glfwWindowHint(ffi::RESIZABLE,             is_resizable as c_int) },
+            Visible(is_visible)             => unsafe { ffi::glfwWindowHint(ffi::VISIBLE,               is_visible as c_int) },
+            Decorated(is_decorated)         => unsafe { ffi::glfwWindowHint(ffi::DECORATED,             is_decorated as c_int) },
+        }
+    }
+
+    /// Resets the window hints previously set by the `window_hint` function to
+    /// their default values.
+    ///
+    /// Wrapper for `glfwDefaultWindowHints`.
+    pub fn default_window_hints(&self) {
+        unsafe { ffi::glfwDefaultWindowHints(); }
+    }
+
+    /// Creates a new window.
+    ///
+    /// Wrapper for `glfwCreateWindow`.
+    pub fn create_window(&self, width: u32, height: u32, title: &str, mode: WindowMode) -> Option<(Window, Receiver<(f64, WindowEvent)>)> {
+        self.create_window_intern(width, height, title, mode, None)
+    }
+
+    /// Internal wrapper for `glfwCreateWindow`.
+    fn create_window_intern(&self, width: u32, height: u32, title: &str, mode: WindowMode, share: Option<&Window>) -> Option<(Window, Receiver<(f64, WindowEvent)>)> {
+        let ptr = unsafe {
+            title.with_c_str(|title| {
+                ffi::glfwCreateWindow(
+                    width as c_int,
+                    height as c_int,
+                    title,
+                    mode.to_ptr(),
+                    match share { Some(w) => w.ptr, None => ptr::null() }
+                )
+            })
+        };
+        if ptr.is_null() {
+            None
+        } else {
+            let (drop_sender, drop_receiver) = channel();
+            let (sender, receiver) = channel();
+            unsafe { ffi::glfwSetWindowUserPointer(ptr, cast::transmute(~sender)); }
+            Some((
+                Window {
+                    ptr: ptr,
+                    glfw: self.clone(),
+                    is_shared: share.is_none(),
+                    drop_sender: Some(drop_sender),
+                    drop_receiver: drop_receiver
+                },
+                receiver,
+            ))
+        }
+    }
+
+    /// Makes the context of the specified window current. If no window is given
+    /// then the current context is detached.
+    ///
+    /// Wrapper for `glfwMakeContextCurrent`.
+    pub fn make_context_current(&self, context: Option<&Window>) {
+        match context {
+            Some(window) => unsafe { ffi::glfwMakeContextCurrent(window.ptr) },
+            None         => unsafe { ffi::glfwMakeContextCurrent(ptr::null()) },
+        }
+    }
+
+    /// Wrapper for `glfwGetX11Display`
+    #[cfg(target_os="linux")]
+    pub fn get_x11_display(&self) -> *c_void {
+        unsafe { ffi::glfwGetX11Display() }
+    }
+
+    /// Immediately process the received events.
+    ///
+    /// Wrapper for `glfwPollEvents`.
+    pub fn poll_events(&self) {
+        unsafe { ffi::glfwPollEvents(); }
+    }
+
+    /// Sleep until at least one event has been recieved, and then perform the
+    /// equivalent of `Glfw::poll_events`.
+    ///
+    /// Wrapper for `glfwWaitEvents`.
+    pub fn wait_events(&self) {
+        unsafe { ffi::glfwWaitEvents(); }
+    }
+
+    /// Returns the current value of the GLFW timer. Unless the timer has been
+    /// set using `glfw::set_time`, the timer measures time elapsed since GLFW
+    /// was initialized.
+    ///
+    /// Wrapper for `glfwGetTime`.
+    pub fn get_time(&self) -> f64 {
+        unsafe { ffi::glfwGetTime() as f64 }
+    }
+
+    /// Sets the value of the GLFW timer.
+    ///
+    /// Wrapper for `glfwSetTime`.
+    pub fn set_time(&self, time: f64) {
+        unsafe { ffi::glfwSetTime(time as c_double); }
+    }
+
+    /// Sets the number of screen updates to wait before swapping the buffers of
+    /// the current context and returning from `Window::swap_buffers`.
+    ///
+    /// Wrapper for `glfwSwapInterval`.
+    pub fn set_swap_interval(&self, interval: u32) {
+        unsafe { ffi::glfwSwapInterval(interval as c_int); }
+    }
+
+    /// Returns `true` if the specified OpenGL or context creation API extension
+    /// is supported by the current context.
+    ///
+    /// Wrapper for `glfwExtensionSupported`.
+    pub fn extension_supported(&self, extension: &str) -> bool {
+        unsafe {
+            extension.with_c_str(|extension| {
+                ffi::glfwExtensionSupported(extension) == ffi::TRUE
+            })
+        }
+    }
+
+    /// Returns the address of the specified client API or extension function
+    /// if it is supported by the current context.
+    ///
+    /// Wrapper for `glfwGetProcAddress`.
+    pub fn get_proc_address(&self, procname: &str) -> Option<GLProc> {
+        unsafe {
+            procname.with_c_str(|procname| {
+                ffi::glfwGetProcAddress(procname)
+            })
+        }
+    }
+
+    /// Constructs a `Joystick` handle corresponding to the supplied `JoystickId`.
+    pub fn get_joystick(&self, id: JoystickId) -> Joystick {
+        Joystick { id: id, glfw: self.clone() }
+    }
 }
 
 /// Wrapper for `glfwGetVersion`.
@@ -315,8 +737,8 @@ pub fn get_version() -> Version {
             major: major as uint,
             minor: minor as uint,
             patch: patch as uint,
-            pre:   ~[],
-            build: ~[],
+            pre:   Vec::new(),
+            build: Vec::new(),
         }
     }
 }
@@ -326,52 +748,19 @@ pub fn get_version_string() -> ~str {
     unsafe { str::raw::from_c_str(ffi::glfwGetVersionString()) }
 }
 
-pub trait ErrorCallback { fn call(&self, error: Error, description: ~str); }
-
-/// Wrapper for `glfwSetErrorCallback`.
-pub fn set_error_callback<Cb: ErrorCallback + Send>(callback: ~Cb) {
-    callbacks::set_error_callback(callback, (|ext_cb| {
-        unsafe { ffi::glfwSetErrorCallback(Some(ext_cb)); }
-    }));
-}
-
-/// An ErrorCallback implementation that uses the `error!` macro.
-pub struct LogErrorHandler;
-
-impl ErrorCallback for LogErrorHandler {
-    fn call(&self, error: Error, desc: ~str) {
-        error!("GLFW Error: {} ({})", error, desc);
-    }
-}
-
-pub trait MonitorCallback { fn call(&self, monitor: &Monitor, event: MonitorEvent); }
+/// An monitor callback. This can be supplied with some user data to be passed
+/// to the callback function when it is triggered.
+pub type MonitorCallback<UserData> = Callback<fn(Monitor, MonitorEvent, &UserData), UserData>;
 
 /// A struct that wraps a `*GLFWmonitor` handle.
-#[deriving(Eq)]
 pub struct Monitor {
-    ptr: *ffi::GLFWmonitor
+    ptr: *ffi::GLFWmonitor,
+    no_copy: marker::NoCopy,
+    no_send: marker::NoSend,
+    no_share: marker::NoShare,
 }
 
 impl Monitor {
-    /// Wrapper for `glfwGetPrimaryMonitor`.
-    pub fn get_primary() -> Result<Monitor,()> {
-        unsafe {
-            ffi::glfwGetPrimaryMonitor()
-             .to_option()
-             .map_or(Err(()),
-                |ptr| Ok(Monitor { ptr: ptr }))
-        }
-    }
-
-    /// Wrapper for `glfwGetMonitors`.
-    pub fn get_connected() -> ~[Monitor] {
-        unsafe {
-            let mut count = 0;
-            let ptr = ffi::glfwGetMonitors(&mut count);
-            vec::from_buf(ptr, count as uint).map(|&m| Monitor { ptr: m })
-        }
-    }
-
     /// Wrapper for `glfwGetMonitorPos`.
     pub fn get_pos(&self) -> (i32, i32) {
         unsafe {
@@ -397,19 +786,12 @@ impl Monitor {
         unsafe { str::raw::from_c_str(ffi::glfwGetMonitorName(self.ptr)) }
     }
 
-    /// Wrapper for `glfwSetMonitorCallback`.
-    pub fn set_callback<Cb: MonitorCallback + Send>(callback: ~Cb) {
-        callbacks::set_monitor_callback(callback, (|ext_cb| {
-            unsafe { ffi::glfwSetMonitorCallback(Some(ext_cb)); }
-        }));
-    }
-
     /// Wrapper for `glfwGetVideoModes`.
-    pub fn get_video_modes(&self) -> ~[VidMode] {
+    pub fn get_video_modes(&self) -> Vec<VidMode> {
         unsafe {
             let mut count = 0;
             let ptr = ffi::glfwGetVideoModes(self.ptr, &mut count);
-            vec::from_buf(ptr, count as uint).map(VidMode::from_glfw_vid_mode)
+            slice::from_buf(ptr, count as uint).iter().map(VidMode::from_glfw_vid_mode).collect()
         }
     }
 
@@ -430,9 +812,9 @@ impl Monitor {
         unsafe {
             let llramp = *ffi::glfwGetGammaRamp(self.ptr);
             GammaRamp {
-                red:    vec::from_buf(llramp.red,   llramp.size as uint),
-                green:  vec::from_buf(llramp.green, llramp.size as uint),
-                blue:   vec::from_buf(llramp.blue,  llramp.size as uint),
+                red:    slice::from_buf(llramp.red,   llramp.size as uint),
+                green:  slice::from_buf(llramp.green, llramp.size as uint),
+                blue:   slice::from_buf(llramp.blue,  llramp.size as uint),
             }
         }
     }
@@ -453,6 +835,7 @@ impl Monitor {
     }
 }
 
+/// Monitor events.
 #[repr(C)]
 pub enum MonitorEvent {
     Connected                   = ffi::CONNECTED,
@@ -491,185 +874,153 @@ impl fmt::Show for VidMode {
     }
 }
 
-pub mod window_hint {
-    use std::libc::c_int;
-    use super::*;
+/// Window hints that can be set using the `window_hint` function.
+pub enum WindowHint {
+    /// Specifies the desired bit depth of the red component of the default framebuffer.
+    RedBits(u32),
+    /// Specifies the desired bit depth of the green component of the default framebuffer.
+    GreenBits(u32),
+    /// Specifies the desired bit depth of the blue component of the default framebuffer.
+    BlueBits(u32),
+    /// Specifies the desired bit depth of the alpha component of the default framebuffer.
+    AlphaBits(u32),
+    /// Specifies the desired bit depth of the depth component of the default framebuffer.
+    DepthBits(u32),
+    /// Specifies the desired bit depth of the stencil component of the default framebuffer.
+    StencilBits(u32),
+    /// Specifies the desired bit depth of the red component of the accumulation framebuffer.
+    AccumRedBits(u32),
+    /// Specifies the desired bit depth of the green component of the accumulation framebuffer.
+    AccumGreenBits(u32),
+    /// Specifies the desired bit depth of the blue component of the accumulation framebuffer.
+    AccumBlueBits(u32),
+    /// Specifies the desired bit depth of the alpha component of the accumulation framebuffer.
+    AccumAlphaBits(u32),
+    /// Specifies the desired number of auxiliary buffers.
+    AuxBuffers(u32),
+    /// Specifies whether to use stereoscopic rendering.
+    Stereo(bool),
+    /// Specifies the desired number of samples to use for multisampling. Zero
+    /// disables multisampling.
+    Samples(u32),
+    /// Specifies whether the framebuffer should be sRGB capable.
+    SRgbCapable(bool),
+    /// Specifies the desired refresh rate for full screen windows. If set to
+    /// zero, the highest available refresh rate will be used.
+    ///
+    /// This hint is ignored for windowed mode windows.
+    RefreshRate(u32),
+    /// Specifies which `ClientApi` to create the context for.
+    ClientApi(ClientApi),
+    /// Specifies the major client API version that the created context must be
+    /// compatible with.
+    ///
+    /// Window creation will fail if the resulting OpenGL version is less than
+    /// the one requested.
+    ContextVersionMajor(u32),
+    /// Specifies the minor client API version that the created context must be
+    /// compatible with.
+    ///
+    /// Window creation will fail if the resulting OpenGL version is less than
+    /// the one requested.
+    ContextVersionMinor(u32),
+    /// Specifies the client API version that the created context must be
+    /// compatible with. This is the same as successive calls to `window_hint`
+    /// function with the `ContextVersionMajor` and `ContextVersionMinor` hints.
+    ///
+    /// Window creation will fail if the resulting OpenGL version is less than
+    /// the one requested.
+    ///
+    /// If `ContextVersion(1, 0)` is requested, _most_ drivers will provide the
+    /// highest available context.
+    ContextVersion(u32, u32),
+    /// Specifies the `ContextRobustness` strategy to be used.
+    ContextRobustness(ContextRobustness),
+    /// Specifies whether the OpenGL context should be forward-compatible, i.e.
+    /// one where all functionality deprecated in the requested version of
+    /// OpenGL is removed. This may only be used if the requested OpenGL version
+    /// is 3.0 or above.
+    ///
+    /// If another client API is requested, this hint is ignored.
+    OpenglForwardCompat(bool),
+    /// Specifies whether to create a debug OpenGL context, which may have
+    /// additional error and performance issue reporting functionality.
+    ///
+    /// If another client API is requested, this hint is ignored.
+    OpenglDebugContext(bool),
+    /// Specifies which OpenGL profile to create the context for. If requesting
+    /// an OpenGL version below 3.2, `OpenGlAnyProfile` must be used.
+    ///
+    /// If another client API is requested, this hint is ignored.
+    OpenglProfile(OpenGlProfile),
+    /// Specifies whether the window will be resizable by the user. Even if this
+    /// is set to `false`, the window can still be resized using the
+    /// `Window::set_size` function.
+    ///
+    /// This hint is ignored for fullscreen windows.
+    Resizable(bool),
+    /// Specifies whether the window will be visible on creation.
+    ///
+    /// This hint is ignored for fullscreen windows.
+    Visible(bool),
+    /// Specifies whether the window will have platform-specific decorations
+    /// such as a border, a close widget, etc.
+    ///
+    /// This hint is ignored for full screen windows.
+    Decorated(bool),
+}
 
-    /// Wrapper for `glfwDefaultWindowHints`.
-    pub fn default() {
-        unsafe { ffi::glfwDefaultWindowHints(); }
-    }
+/// Client API tokens.
+#[repr(C)]
+#[deriving(Clone, Eq, Show)]
+pub enum ClientApi {
+    OpenGlApi                   = ffi::OPENGL_API,
+    OpenGlEsApi                 = ffi::OPENGL_ES_API,
+}
 
-    /// Wrapper for `glfwWindowHint` called with `RED_BITS`.
-    pub fn red_bits(bits: u32) {
-        unsafe { ffi::glfwWindowHint(ffi::RED_BITS, bits as c_int); }
-    }
+/// Context robustness tokens.
+#[repr(C)]
+#[deriving(Clone, Eq, Show)]
+pub enum ContextRobustness {
+    NoRobustness                = ffi::NO_ROBUSTNESS,
+    NoResetNotification         = ffi::NO_RESET_NOTIFICATION,
+    LoseContextOnReset          = ffi::LOSE_CONTEXT_ON_RESET,
+}
 
-    /// Wrapper for `glfwWindowHint` called with `GREEN_BITS`.
-    pub fn green_bits(bits: u32) {
-        unsafe { ffi::glfwWindowHint(ffi::GREEN_BITS, bits as c_int); }
-    }
-
-    /// Wrapper for `glfwWindowHint` called with `BLUE_BITS`.
-    pub fn blue_bits(bits: u32) {
-        unsafe { ffi::glfwWindowHint(ffi::BLUE_BITS, bits as c_int); }
-    }
-
-    /// Wrapper for `glfwWindowHint` called with `ALPHA_BITS`.
-    pub fn alpha_bits(bits: u32) {
-        unsafe { ffi::glfwWindowHint(ffi::ALPHA_BITS, bits as c_int); }
-    }
-
-    /// Wrapper for `glfwWindowHint` called with `DEPTH_BITS`.
-    pub fn depth_bits(bits: u32) {
-        unsafe { ffi::glfwWindowHint(ffi::DEPTH_BITS, bits as c_int); }
-    }
-
-    /// Wrapper for `glfwWindowHint` called with `STENCIL_BITS`.
-    pub fn stencil_bits(bits: u32) {
-        unsafe { ffi::glfwWindowHint(ffi::STENCIL_BITS, bits as c_int); }
-    }
-
-    /// Wrapper for `glfwWindowHint` called with `ACCUM_RED_BITS`.
-    pub fn accum_red_bits(bits: u32) {
-        unsafe { ffi::glfwWindowHint(ffi::ACCUM_RED_BITS, bits as c_int); }
-    }
-
-    /// Wrapper for `glfwWindowHint` called with `ACCUM_GREEN_BITS`.
-    pub fn accum_green_bits(bits: u32) {
-        unsafe { ffi::glfwWindowHint(ffi::ACCUM_GREEN_BITS, bits as c_int); }
-    }
-
-    /// Wrapper for `glfwWindowHint` called with `ACCUM_BLUE_BITS`.
-    pub fn accum_blue_bits(bits: u32) {
-        unsafe { ffi::glfwWindowHint(ffi::ACCUM_BLUE_BITS, bits as c_int); }
-    }
-
-    /// Wrapper for `glfwWindowHint` called with `ACCUM_ALPHA_BITS`.
-    pub fn accum_alpha_bits(bits: u32) {
-        unsafe { ffi::glfwWindowHint(ffi::ACCUM_ALPHA_BITS, bits as c_int); }
-    }
-
-    /// Wrapper for `glfwWindowHint` called with `AUX_BUFFERS`.
-    pub fn aux_buffers(buffers: u32) {
-        unsafe { ffi::glfwWindowHint(ffi::AUX_BUFFERS, buffers as c_int); }
-    }
-
-    /// Wrapper for `glfwWindowHint` called with `STEREO`.
-    pub fn stereo(value: bool) {
-        unsafe { ffi::glfwWindowHint(ffi::STEREO, value as c_int); }
-    }
-
-    /// Wrapper for `glfwWindowHint` called with `SAMPLES`.
-    pub fn samples(samples: u32) {
-        unsafe { ffi::glfwWindowHint(ffi::SAMPLES, samples as c_int); }
-    }
-
-    /// Wrapper for `glfwWindowHint` called with `SRGB_CAPABLE`.
-    pub fn srgb_capable(value: bool) {
-        unsafe { ffi::glfwWindowHint(ffi::SRGB_CAPABLE, value as c_int); }
-    }
-
-    /// Wrapper for `glfwWindowHint` called with `REFRESH_RATE`.
-    pub fn refresh_rate(rate: u32) {
-        unsafe { ffi::glfwWindowHint(ffi::REFRESH_RATE, rate as c_int); }
-    }
-
-    /// Wrapper for `glfwWindowHint` called with `CLIENT_API`.
-    pub fn client_api(api: ClientApi) {
-        unsafe { ffi::glfwWindowHint(ffi::CLIENT_API, api as c_int); }
-    }
-
-    /// Wrapper for `glfwWindowHint` called with `CONTEXT_VERSION_MAJOR`.
-    pub fn context_version_major(major: u32) {
-        unsafe { ffi::glfwWindowHint(ffi::CONTEXT_VERSION_MAJOR, major as c_int); }
-    }
-
-    /// Wrapper for `glfwWindowHint` called with `CONTEXT_VERSION_MINOR`.
-    pub fn context_version_minor(minor: u32) {
-        unsafe { ffi::glfwWindowHint(ffi::CONTEXT_VERSION_MINOR, minor as c_int); }
-    }
-
-    /// Wrapper for `glfwWindowHint` called with `CONTEXT_VERSION_MAJOR` and
-    /// `CONTEXT_VERSION_MINOR`.
-    pub fn context_version(major: u32, minor: u32) {
-        unsafe {
-            ffi::glfwWindowHint(ffi::CONTEXT_VERSION_MAJOR, major as c_int);
-            ffi::glfwWindowHint(ffi::CONTEXT_VERSION_MINOR, minor as c_int);
-        }
-    }
-
-    /// Wrapper for `glfwWindowHint` called with `CONTEXT_ROBUSTNESS`.
-    pub fn context_robustness(value: ContextRobustness) {
-        unsafe { ffi::glfwWindowHint(ffi::CONTEXT_ROBUSTNESS, value as c_int); }
-    }
-
-    /// Wrapper for `glfwWindowHint` called with `OPENGL_FORWARD_COMPAT`.
-    pub fn opengl_forward_compat(value: bool) {
-        unsafe { ffi::glfwWindowHint(ffi::OPENGL_FORWARD_COMPAT, value as c_int); }
-    }
-
-    /// Wrapper for `glfwWindowHint` called with `OPENGL_DEBUG_CONTEXT`.
-    pub fn opengl_debug_context(value: bool) {
-        unsafe { ffi::glfwWindowHint(ffi::OPENGL_DEBUG_CONTEXT, value as c_int); }
-    }
-
-    /// Wrapper for `glfwWindowHint` called with `OPENGL_PROFILE`.
-    pub fn opengl_profile(profile: OpenGlProfile) {
-        unsafe { ffi::glfwWindowHint(ffi::OPENGL_PROFILE, profile as c_int); }
-    }
-
-    /// Wrapper for `glfwWindowHint` called with `RESIZABLE`.
-    pub fn resizable(value: bool) {
-        unsafe { ffi::glfwWindowHint(ffi::RESIZABLE, value as c_int); }
-    }
-
-    /// Wrapper for `glfwWindowHint` called with `VISIBLE`.
-    pub fn visible(value: bool) {
-        unsafe { ffi::glfwWindowHint(ffi::VISIBLE, value as c_int); }
-    }
-
-    /// Wrapper for `glfwWindowHint` called with `DECORATED`.
-    pub fn decorated(value: bool) {
-        unsafe { ffi::glfwWindowHint(ffi::DECORATED, value as c_int); }
-    }
+/// OpenGL profile tokens.
+#[repr(C)]
+#[deriving(Clone, Eq, Show)]
+pub enum OpenGlProfile {
+    OpenGlAnyProfile            = ffi::OPENGL_ANY_PROFILE,
+    OpenGlCoreProfile           = ffi::OPENGL_CORE_PROFILE,
+    OpenGlCompatProfile         = ffi::OPENGL_COMPAT_PROFILE,
 }
 
 /// Describes the mode of a window
-pub enum WindowMode {
+pub enum WindowMode<'a> {
     /// Full screen mode. Contains the monitor on which the window is displayed.
-    FullScreen(Monitor),
+    FullScreen(&'a Monitor),
 
     /// Windowed mode.
     Windowed,
 }
 
 /// Private conversion methods for `glfw::WindowMode`
-impl WindowMode {
-    /// Extract the window mode from a low-level monitor pointer. If the pointer
-    /// is null it assumes the window is in windowed mode and returns `Windowed`,
-    /// otherwise it returns the pointer wrapped in `glfw::FullScreen`.
-    fn from_ptr(ptr: *ffi::GLFWmonitor) -> WindowMode {
-        if ptr.is_null() {
-            Windowed
-        } else {
-            FullScreen(Monitor { ptr: ptr })
-        }
-    }
-
+impl<'a> WindowMode<'a> {
     /// Returns a pointer to a monitor if the window is fullscreen, otherwise
     /// it returns a null pointer (if it is in windowed mode).
     fn to_ptr(&self) -> *ffi::GLFWmonitor {
         match *self {
-            FullScreen(monitor) => monitor.ptr,
-            Windowed => ptr::null()
+            FullScreen(ref monitor) => monitor.ptr,
+            Windowed                => ptr::null(),
         }
     }
 }
 
 /// A group of key modifiers
+#[deriving(Clone)]
 pub struct Modifiers {
-    values: c_int,
+    pub values: c_int,
 }
 
 /// Key modifier tokens
@@ -711,6 +1062,8 @@ impl fmt::Show for Modifiers {
 
 pub type Scancode = c_int;
 
+/// Window event messages.
+#[deriving(Show, Clone)]
 pub enum WindowEvent {
     PosEvent(i32, i32),
     SizeEvent(i32, i32),
@@ -727,34 +1080,46 @@ pub enum WindowEvent {
     CharEvent(char),
 }
 
-pub struct WindowEvents<'a> {
-    priv event_port: &'a Port<(f64, WindowEvent)>,
+/// Returns an iterator that yeilds until no more messages are contained in the
+/// `Receiver`'s queue. This is useful for event handling where the blocking
+/// behaviour of `Receiver::iter` is undesirable.
+///
+/// # Example
+///
+/// ~~~rust
+/// for event in glfw::flush_messages(&events) {
+///     // handle event
+/// }
+/// ~~~
+pub fn flush_messages<'a, Message: Send>(receiver: &'a Receiver<Message>) -> FlushedMessages<'a, Message> {
+    FlushedMessages(receiver)
 }
 
-impl<'a> Iterator<(f64, WindowEvent)> for WindowEvents<'a> {
-    fn next(&mut self) -> Option<(f64, WindowEvent)> {
-        self.event_port.recv_opt()
-    }
-}
+/// An iterator that yeilds until no more messages are contained in the
+/// `Receiver`'s queue.
+pub struct FlushedMessages<'a, Message>(&'a Receiver<Message>);
 
-pub struct FlushedWindowEvents<'a> {
-    priv event_port: &'a Port<(f64, WindowEvent)>,
-}
-
-impl<'a> Iterator<(f64, WindowEvent)> for FlushedWindowEvents<'a> {
-    fn next(&mut self) -> Option<(f64, WindowEvent)> {
-        match self.event_port.try_recv() {
-            Data(event) => Some(event),
+impl<'a, Message: Send> Iterator<Message> for FlushedMessages<'a, Message> {
+    fn next(&mut self) -> Option<Message> {
+        let FlushedMessages(receiver) = *self;
+        match receiver.try_recv() {
+            Data(message) => Some(message),
             _ => None,
         }
     }
 }
 
+/// A message for notifying a `Window` that a `RenderContext` has been dropped.
+#[deriving(Eq)]
+struct ContextDropped;
+
 /// A struct that wraps a `*GLFWwindow` handle.
 pub struct Window {
-    ptr: *ffi::GLFWwindow,
-    event_port: Port<(f64, WindowEvent)>,
-    is_shared: bool,
+    pub ptr: *ffi::GLFWwindow,
+    pub glfw: Glfw,
+    pub is_shared: bool,
+    drop_sender: Option<Sender<ContextDropped>>,
+    drop_receiver: Receiver<ContextDropped>
 }
 
 macro_rules! set_window_callback(
@@ -769,51 +1134,22 @@ macro_rules! set_window_callback(
 
 impl Window {
     /// Wrapper for `glfwCreateWindow`.
-    pub fn create(width: u32, height: u32, title: &str, mode: WindowMode) -> Option<Window> {
-        Window::create_intern(width, height, title, mode, None)
+    pub fn create_shared(&self, width: u32, height: u32, title: &str, mode: WindowMode) -> Option<(Window, Receiver<(f64, WindowEvent)>)> {
+        self.glfw.create_window_intern(width, height, title, mode, Some(self))
     }
 
-    /// Wrapper for `glfwCreateWindow`.
-    pub fn create_shared(&self, width: u32, height: u32, title: &str, mode: WindowMode) -> Option<Window> {
-        Window::create_intern(width, height, title, mode, Some(self))
-    }
+    /// Calling this method forces the destructor to be called, closing the
+    /// window.
+    pub fn close(self) {}
 
-    /// Internal wrapper for `glfwCreateWindow`.
-    fn create_intern(width: u32, height: u32, title: &str, mode: WindowMode, share: Option<&Window>) -> Option<Window> {
-        let ptr = unsafe {
-            title.with_c_str(|title| {
-                ffi::glfwCreateWindow(
-                    width as c_int,
-                    height as c_int,
-                    title,
-                    mode.to_ptr(),
-                    match share { Some(w) => w.ptr, None => ptr::null() }
-                )
-            })
-        };
-        if ptr.is_null() {
-            None
-        } else {
-            let (port, chan) = Chan::new();
-            unsafe { ffi::glfwSetWindowUserPointer(ptr, cast::transmute(~chan)); }
-            Some(Window {
-                ptr: ptr,
-                event_port: port,
-                is_shared: share.is_none(),
-            })
+    /// Returns a render context that can be shared between tasks, allowing
+    /// for concurrent rendering.
+    pub fn render_context(&mut self) -> RenderContext {
+        RenderContext {
+            ptr: self.ptr,
+            // this will only be None after dropping so this is safe
+            drop_sender: self.drop_sender.as_ref().unwrap().clone()
         }
-    }
-
-    pub fn close(self) {
-        // Calling this method forces the destructor to be called, closing the window
-    }
-
-    pub fn events<'a>(&'a self) -> WindowEvents<'a> {
-        WindowEvents { event_port: &'a self.event_port }
-    }
-
-    pub fn flush_events<'a>(&'a self) -> FlushedWindowEvents<'a> {
-        FlushedWindowEvents { event_port: &'a self.event_port }
     }
 
     /// Wrapper for `glfwWindowShouldClose`.
@@ -826,6 +1162,8 @@ impl Window {
         unsafe { ffi::glfwSetWindowShouldClose(self.ptr, value as c_int) }
     }
 
+    /// Sets the title of the window.
+    ///
     /// Wrapper for `glfwSetWindowTitle`.
     pub fn set_title(&self, title: &str) {
         unsafe {
@@ -895,15 +1233,21 @@ impl Window {
         unsafe { ffi::glfwHideWindow(self.ptr); }
     }
 
+    /// Returns whether the window is fullscreen or windowed.
+    ///
     /// Wrapper for `glfwGetWindowMonitor`.
-    ///
-    /// # Returns
-    ///
-    /// The window mode; either glfw::FullScreen or glfw::Windowed
-    pub fn get_window_mode(&self) -> WindowMode {
-        WindowMode::from_ptr(
-            unsafe { ffi::glfwGetWindowMonitor(self.ptr) }
-        )
+    pub fn with_window_mode<T>(&self, f: |WindowMode| -> T) -> T {
+        let ptr = unsafe { ffi::glfwGetWindowMonitor(self.ptr) };
+        if ptr.is_null() {
+            f(Windowed)
+        } else {
+            f(FullScreen(&Monitor {
+                ptr: ptr,
+                no_copy: marker::NoCopy,
+                no_send: marker::NoSend,
+                no_share: marker::NoShare,
+            }))
+        }
     }
 
     /// Wrapper for `glfwGetWindowAttrib` called with `FOCUSED`.
@@ -933,8 +1277,8 @@ impl Window {
                 major: ffi::glfwGetWindowAttrib(self.ptr, ffi::CONTEXT_VERSION_MAJOR) as uint,
                 minor: ffi::glfwGetWindowAttrib(self.ptr, ffi::CONTEXT_VERSION_MINOR) as uint,
                 patch: ffi::glfwGetWindowAttrib(self.ptr, ffi::CONTEXT_REVISION) as uint,
-                pre:   ~[],
-                build: ~[],
+                pre:   Vec::new(),
+                build: Vec::new(),
             }
         }
     }
@@ -1124,21 +1468,6 @@ impl Window {
         unsafe { str::raw::from_c_str(ffi::glfwGetClipboardString(self.ptr)) }
     }
 
-    /// Wrapper for `glfwMakeContextCurrent`.
-    pub fn make_context_current(&self) {
-        make_context_current(Some(self));
-    }
-
-    /// Wrapper for `glfwGetCurrentContext`
-    pub fn is_current_context(&self) -> bool {
-        self.ptr == unsafe { ffi::glfwGetCurrentContext() }
-    }
-
-    /// Wrapper for `glfwSwapBuffers`.
-    pub fn swap_buffers(&self) {
-        unsafe { ffi::glfwSwapBuffers(self.ptr); }
-    }
-
     /// Wrapper for `glfwGetWin32Window`
     #[cfg(target_os="win32")]
     pub fn get_win32_window(&self) -> *c_void {
@@ -1176,50 +1505,85 @@ impl Window {
     }
 }
 
-/// Wrapper for `glfwMakeContextCurrent`.
-pub fn make_context_current(context: Option<&Window>) {
-    match context {
-        Some(window) => unsafe { ffi::glfwMakeContextCurrent(window.ptr) },
-        None         => unsafe { ffi::glfwMakeContextCurrent(ptr::null()) },
-    }
-}
-
-/// Wrapper for `glfwGetX11Display`
-#[cfg(target_os="linux")]
-pub fn get_x11_display() -> *c_void {
-    unsafe { ffi::glfwGetX11Display() }
-}
-
 #[unsafe_destructor]
 impl Drop for Window {
-    /// Closes the window and removes all associated callbacks.
+    /// Closes the window and performs the necessary cleanups. This will block
+    /// until all associated `RenderContext`s were also dropped.
     ///
     /// Wrapper for `glfwDestroyWindow`.
     fn drop(&mut self) {
+        drop(self.drop_sender.take());
+
+        if self.drop_receiver.try_recv() != std::comm::Disconnected {
+            error!("Attempted to drop a Window before the `RenderContext` was dropped.");
+            error!("Blocking until the `RenderContext` was dropped.");
+            let _ = self.drop_receiver.recv_opt();
+        }
+
         if !self.is_shared {
             unsafe { ffi::glfwDestroyWindow(self.ptr); }
         }
         if !self.ptr.is_null() {
             unsafe {
-                let _: ~Chan<(f64, WindowEvent)> = cast::transmute(ffi::glfwGetWindowUserPointer(self.ptr));
+                let _: ~Sender<(f64, WindowEvent)> = cast::transmute(ffi::glfwGetWindowUserPointer(self.ptr));
             }
         }
     }
 }
 
-/// Wrapper for `glfwPollEvents`.
-pub fn poll_events() {
-    unsafe { ffi::glfwPollEvents(); }
+/// A rendering context that can be shared between tasks.
+pub struct RenderContext {
+    ptr: *ffi::GLFWwindow,
+    drop_sender: Sender<ContextDropped>
 }
 
-/// Wrapper for `glfwWaitEvents`.
-pub fn wait_events() {
-    unsafe { ffi::glfwWaitEvents(); }
+/// Methods common to renderable contexts
+pub trait Context {
+    /// Returns the pointer to the underlying `GLFWwindow`.
+    fn window_ptr(&self) -> *ffi::GLFWwindow;
+
+    /// Swaps the front and back buffers of the window. If the swap interval is
+    /// greater than zero, the GPU driver waits the specified number of screen
+    /// updates before swapping the buffers.
+    ///
+    /// Wrapper for `glfwSwapBuffers`.
+    fn swap_buffers(&self) {
+        let ptr = self.window_ptr();
+        unsafe { ffi::glfwSwapBuffers(ptr); }
+    }
+
+    /// Returns `true` if the window is the current context.
+    fn is_current(&self) -> bool {
+        self.window_ptr() == unsafe { ffi::glfwGetCurrentContext() }
+    }
+
+    /// Wrapper for `glfwMakeContextCurrent`
+    fn make_current(&self) {
+        let ptr = self.window_ptr();
+        unsafe { ffi::glfwMakeContextCurrent(ptr); }
+    }
 }
 
+impl Context for Window {
+    fn window_ptr(&self) -> *ffi::GLFWwindow { self.ptr }
+}
+
+impl Context for RenderContext {
+    fn window_ptr(&self) -> *ffi::GLFWwindow { self.ptr }
+}
+
+/// Wrapper for `glfwMakeContextCurrent`.
+pub fn make_context_current(context: Option<&Context>) {
+    match context {
+        Some(ctx) => unsafe { ffi::glfwMakeContextCurrent(ctx.window_ptr()) },
+        None      => unsafe { ffi::glfwMakeContextCurrent(ptr::null()) },
+    }
+}
+
+/// Joystick identifier tokens.
 #[repr(C)]
 #[deriving(Clone, Eq, Hash, Show)]
-pub enum Joystick {
+pub enum JoystickId {
     Joystick1       = ffi::JOYSTICK_1,
     Joystick2       = ffi::JOYSTICK_2,
     Joystick3       = ffi::JOYSTICK_3,
@@ -1238,65 +1602,38 @@ pub enum Joystick {
     Joystick16      = ffi::JOYSTICK_16,
 }
 
+/// A joystick handle.
+pub struct Joystick {
+    pub id: JoystickId,
+    pub glfw: Glfw,
+}
+
 impl Joystick {
     /// Wrapper for `glfwJoystickPresent`.
     pub fn is_present(&self) -> bool {
-        unsafe { ffi::glfwJoystickPresent(*self as c_int) == ffi::TRUE }
+        unsafe { ffi::glfwJoystickPresent(self.id as c_int) == ffi::TRUE }
     }
 
     /// Wrapper for `glfwGetJoystickAxes`.
-    pub fn get_axes(&self) -> ~[f32] {
+    pub fn get_axes(&self) -> Vec<f32> {
         unsafe {
             let mut count = 0;
-            let ptr = ffi::glfwGetJoystickAxes(*self as c_int, &mut count);
-            vec::from_buf(ptr, count as uint).map(|&a| a as f32)
+            let ptr = ffi::glfwGetJoystickAxes(self.id as c_int, &mut count);
+            slice::from_buf(ptr, count as uint).iter().map(|&a| a as f32).collect()
         }
     }
 
     /// Wrapper for `glfwGetJoystickButtons`.
-    pub fn get_buttons(&self) -> ~[c_int] {
+    pub fn get_buttons(&self) -> Vec<c_int> {
         unsafe {
             let mut count = 0;
-            let ptr = ffi::glfwGetJoystickButtons(*self as c_int, &mut count);
-            vec::from_buf(ptr, count as uint).map(|&b| b as c_int)
+            let ptr = ffi::glfwGetJoystickButtons(self.id as c_int, &mut count);
+            slice::from_buf(ptr, count as uint).iter().map(|&b| b as c_int).collect()
         }
     }
 
     /// Wrapper for `glfwGetJoystickName`.
     pub fn get_name(&self) -> ~str {
-        unsafe { str::raw::from_c_str(ffi::glfwGetJoystickName(*self as c_int)) }
-    }
-}
-
-/// Wrapper for `glfwGetTime`.
-pub fn get_time() -> f64 {
-    unsafe { ffi::glfwGetTime() as f64 }
-}
-
-/// Wrapper for `glfwSetTime`.
-pub fn set_time(time: f64) {
-    unsafe { ffi::glfwSetTime(time as c_double); }
-}
-
-/// Wrapper for `glfwSwapInterval`.
-pub fn set_swap_interval(interval: u32) {
-    unsafe { ffi::glfwSwapInterval(interval as c_int); }
-}
-
-/// Wrapper for `glfwExtensionSupported`.
-pub fn extension_supported(extension: &str) -> bool {
-    unsafe {
-        extension.with_c_str(|extension| {
-            ffi::glfwExtensionSupported(extension) == ffi::TRUE
-        })
-    }
-}
-
-/// Wrapper for `glfwGetProcAddress`.
-pub fn get_proc_address(procname: &str) -> Option<GLProc> {
-    unsafe {
-        procname.with_c_str(|procname| {
-            ffi::glfwGetProcAddress(procname)
-        })
+        unsafe { str::raw::from_c_str(ffi::glfwGetJoystickName(self.id as c_int)) }
     }
 }
