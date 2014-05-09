@@ -79,7 +79,7 @@ extern crate libc;
 use libc::{c_double, c_float, c_int};
 use libc::{c_uint, c_ushort, c_void};
 use std::cast;
-use std::comm::{channel, Receiver, Sender, Data};
+use std::comm::{channel, Receiver, Sender};
 use std::fmt;
 use std::kinds::marker;
 use std::ptr;
@@ -626,7 +626,7 @@ impl Glfw {
         } else {
             let (drop_sender, drop_receiver) = channel();
             let (sender, receiver) = channel();
-            unsafe { ffi::glfwSetWindowUserPointer(ptr, cast::transmute(~sender)); }
+            unsafe { ffi::glfwSetWindowUserPointer(ptr, cast::transmute(box sender)); }
             Some((
                 Window {
                     ptr: ptr,
@@ -1102,10 +1102,7 @@ pub struct FlushedMessages<'a, Message>(&'a Receiver<Message>);
 impl<'a, Message: Send> Iterator<Message> for FlushedMessages<'a, Message> {
     fn next(&mut self) -> Option<Message> {
         let FlushedMessages(receiver) = *self;
-        match receiver.try_recv() {
-            Data(message) => Some(message),
-            _ => None,
-        }
+        receiver.try_recv().ok()
     }
 }
 
@@ -1514,10 +1511,13 @@ impl Drop for Window {
     fn drop(&mut self) {
         drop(self.drop_sender.take());
 
-        if self.drop_receiver.try_recv() != std::comm::Disconnected {
-            error!("Attempted to drop a Window before the `RenderContext` was dropped.");
-            error!("Blocking until the `RenderContext` was dropped.");
-            let _ = self.drop_receiver.recv_opt();
+        match self.drop_receiver.try_recv() {
+            Err(std::comm::Disconnected) => (),
+            _ => {
+                error!("Attempted to drop a Window before the `RenderContext` was dropped.");
+                error!("Blocking until the `RenderContext` was dropped.");
+                let _ = self.drop_receiver.recv_opt();
+            },
         }
 
         if !self.is_shared {
@@ -1525,7 +1525,7 @@ impl Drop for Window {
         }
         if !self.ptr.is_null() {
             unsafe {
-                let _: ~Sender<(f64, WindowEvent)> = cast::transmute(ffi::glfwGetWindowUserPointer(self.ptr));
+                let _: Box<Sender<(f64, WindowEvent)>> = cast::transmute(ffi::glfwGetWindowUserPointer(self.ptr));
             }
         }
     }
