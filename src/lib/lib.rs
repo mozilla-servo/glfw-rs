@@ -79,7 +79,7 @@ extern crate libc;
 use libc::{c_double, c_float, c_int};
 use libc::{c_uint, c_ushort, c_void};
 use std::cast;
-use std::comm::{channel, Receiver, Sender, Data};
+use std::comm::{channel, Receiver, Sender};
 use std::fmt;
 use std::kinds::marker;
 use std::ptr;
@@ -626,7 +626,7 @@ impl Glfw {
         } else {
             let (drop_sender, drop_receiver) = channel();
             let (sender, receiver) = channel();
-            unsafe { ffi::glfwSetWindowUserPointer(ptr, cast::transmute(~sender)); }
+            unsafe { ffi::glfwSetWindowUserPointer(ptr, cast::transmute(box sender)); }
             Some((
                 Window {
                     ptr: ptr,
@@ -1017,36 +1017,14 @@ impl<'a> WindowMode<'a> {
     }
 }
 
-/// A group of key modifiers
-#[deriving(Clone)]
-pub struct Modifiers {
-    pub values: c_int,
-}
-
-/// Key modifier tokens
-#[repr(C)]
-#[deriving(Clone, Eq, Hash, Show)]
-pub enum Modifier {
-    Shift       = ffi::MOD_SHIFT,
-    Control     = ffi::MOD_CONTROL,
-    Alt         = ffi::MOD_ALT,
-    Super       = ffi::MOD_SUPER,
-}
-
-impl Modifiers {
-    /// Check to see if a specific key modifier is present
-    ///
-    /// # Example
-    ///
-    /// ~~~rust
-    /// do window.set_key_callback |_, _, _, _, mods| {
-    ///     if mods.contains(glfw::Shift) {
-    ///         println!("Shift detected!")
-    ///     }
-    /// }
-    /// ~~~
-    pub fn contains(&self, modifier: Modifier) -> bool {
-        self.values & (modifier as c_int) != ffi::FALSE
+bitflags! {
+    #[doc = "Key modifiers"]
+    #[deriving(Hash)]
+    flags Modifiers: c_int {
+        static Shift       = ffi::MOD_SHIFT,
+        static Control     = ffi::MOD_CONTROL,
+        static Alt         = ffi::MOD_ALT,
+        static Super       = ffi::MOD_SUPER
     }
 }
 
@@ -1054,7 +1032,11 @@ impl fmt::Show for Modifiers {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for (i, x) in [Shift, Control, Alt, Super].iter().filter(|x| self.contains(**x)).enumerate() {
             if i != 0 { try!(write!(f.buf, ", ")) };
-            try!(write!(f.buf, "{}", *x));
+            if      *x == Shift   { try!(write!(f.buf, "Shift"   )) }
+            else if *x == Control { try!(write!(f.buf, "Control" )) }
+            else if *x == Alt     { try!(write!(f.buf, "Alt"     )) }
+            else if *x == Super   { try!(write!(f.buf, "Super"   )) }
+            else                  { try!(write!(f.buf, "???"     )) }
         }
         Ok(())
     }
@@ -1103,7 +1085,7 @@ impl<'a, Message: Send> Iterator<Message> for FlushedMessages<'a, Message> {
     fn next(&mut self) -> Option<Message> {
         let FlushedMessages(receiver) = *self;
         match receiver.try_recv() {
-            Data(message) => Some(message),
+            Ok(message) => Some(message),
             _ => None,
         }
     }
@@ -1122,12 +1104,24 @@ pub struct Window {
     drop_receiver: Receiver<ContextDropped>
 }
 
+#[cfg(not(target_word_size = "32"))]
 macro_rules! set_window_callback(
     ($should_poll:expr, $ll_fn:ident, $callback:ident) => ({
         if $should_poll {
             unsafe { ffi::$ll_fn(self.ptr, Some(callbacks::$callback)); }
         } else {
             unsafe { ffi::$ll_fn(self.ptr, None); }
+        }
+    })
+)
+// FIXME: workaround for mozilla/rust#11040
+#[cfg(target_word_size = "32")]
+macro_rules! set_window_callback(
+    ($should_poll:expr, $ll_fn:ident, $callback:ident) => ({
+        if $should_poll {
+            unsafe { ffi::$ll_fn(self.ptr, callbacks::$callback); }
+        } else {
+            unsafe { ffi::$ll_fn(self.ptr, cast::transmute(ptr::null::<libc::c_void>())); }
         }
     })
 )
@@ -1514,7 +1508,7 @@ impl Drop for Window {
     fn drop(&mut self) {
         drop(self.drop_sender.take());
 
-        if self.drop_receiver.try_recv() != std::comm::Disconnected {
+        if self.drop_receiver.try_recv() != Err(std::comm::Disconnected) {
             error!("Attempted to drop a Window before the `RenderContext` was dropped.");
             error!("Blocking until the `RenderContext` was dropped.");
             let _ = self.drop_receiver.recv_opt();
@@ -1525,7 +1519,7 @@ impl Drop for Window {
         }
         if !self.ptr.is_null() {
             unsafe {
-                let _: ~Sender<(f64, WindowEvent)> = cast::transmute(ffi::glfwGetWindowUserPointer(self.ptr));
+                let _: Box<Sender<(f64, WindowEvent)>> = cast::transmute(ffi::glfwGetWindowUserPointer(self.ptr));
             }
         }
     }
