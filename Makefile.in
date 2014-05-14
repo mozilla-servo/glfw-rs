@@ -20,7 +20,7 @@ endif
 all: libglfwrs.dummy
 
 libglfwrs.dummy: src/lib/lib.rs $(RUST_SRC)
-	$(RUSTC) $(RUSTFLAGS) -C link-args="$(LDFLAGS)" $< --out-dir . --crate-type=lib
+	$(RUSTC) $(RUSTFLAGS) -C link-args="$(LDFLAGS)" $< --out-dir .
 	touch $@
 
 .PHONY: check

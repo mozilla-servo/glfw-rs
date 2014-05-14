@@ -27,7 +27,7 @@ macro_rules! callback(
         let ext_set = $ext_set:expr;
         fn callback($($ext_arg:ident: $ext_arg_ty:ty),*) $call:expr
     ) => (
-        local_data_key!(CALLBACK_KEY: ~Object<Args>:'static)
+        local_data_key!(CALLBACK_KEY: Box<Object<Args>:'static>)
 
         type Args = ($($arg_ty),*,);
 
@@ -41,23 +41,35 @@ macro_rules! callback(
             }
         }
 
+        #[cfg(not(target_word_size = "32"))]
         pub fn set<UserData: 'static>(f: ::$Callback<UserData>) {
-            ::std::local_data::set(CALLBACK_KEY, ~f as ~Object<Args>:'static);
+            CALLBACK_KEY.replace(Some(box f as Box<Object<Args>:'static>));
             ($ext_set)(Some(callback));
         }
+        // FIXME: workaround for mozilla/rust#11040
+        #[cfg(target_word_size = "32")]
+        pub fn set<UserData: 'static>(f: ::$Callback<UserData>) {
+            CALLBACK_KEY.replace(Some(box f as Box<Object<Args>:'static>));
+            ($ext_set)(callback);
+        }
 
+        #[cfg(not(target_word_size = "32"))]
         pub fn unset() {
-            ::std::local_data::pop(CALLBACK_KEY);
+            CALLBACK_KEY.replace(None);
             ($ext_set)(None);
+        }
+        // FIXME: workaround for mozilla/rust#11040
+        #[cfg(target_word_size = "32")]
+        pub fn unset() {
+            CALLBACK_KEY.replace(None);
+            ($ext_set)(unsafe { cast::transmute(::std::ptr::null::<::libc::c_void>()) });
         }
 
         extern "C" fn callback($($ext_arg: $ext_arg_ty),*) {
-            ::std::local_data::get(CALLBACK_KEY, |data| {
-                match data {
-                    Some(cb) => unsafe { cb.call($call) },
-                    _ => {}
-                }
-            });
+            match CALLBACK_KEY.get() {
+                Some(cb) => unsafe { cb.call($call) },
+                _ => {}
+            }
         }
     )
 )
@@ -122,9 +134,9 @@ window_callback!(fn window_refresh_callback()                                   
 window_callback!(fn window_focus_callback(focused: c_int)                                   => FocusEvent(focused == ffi::TRUE))
 window_callback!(fn window_iconify_callback(iconified: c_int)                               => IconifyEvent(iconified == ffi::TRUE))
 window_callback!(fn framebuffer_size_callback(width: c_int, height: c_int)                  => FramebufferSizeEvent(width as i32, height as i32))
-window_callback!(fn mouse_button_callback(button: c_int, action: c_int, mods: c_int)        => MouseButtonEvent(cast::transmute(button), cast::transmute(action), Modifiers { values: mods }))
+window_callback!(fn mouse_button_callback(button: c_int, action: c_int, mods: c_int)        => MouseButtonEvent(cast::transmute(button), cast::transmute(action), Modifiers::from_bits(mods)))
 window_callback!(fn cursor_pos_callback(xpos: c_double, ypos: c_double)                     => CursorPosEvent(xpos as f64, ypos as f64))
 window_callback!(fn cursor_enter_callback(entered: c_int)                                   => CursorEnterEvent(entered == ffi::TRUE))
 window_callback!(fn scroll_callback(xpos: c_double, ypos: c_double)                         => ScrollEvent(xpos as f64, ypos as f64))
-window_callback!(fn key_callback(key: c_int, scancode: c_int, action: c_int, mods: c_int)   => KeyEvent(cast::transmute(key), scancode, cast::transmute(action), Modifiers { values: mods }))
+window_callback!(fn key_callback(key: c_int, scancode: c_int, action: c_int, mods: c_int)   => KeyEvent(cast::transmute(key), scancode, cast::transmute(action), Modifiers::from_bits(mods)))
 window_callback!(fn char_callback(character: c_uint)                                        => CharEvent(::std::char::from_u32(character).unwrap()))

@@ -20,7 +20,7 @@ extern crate native;
 extern crate glfw;
 
 use glfw::Context;
-use std::task::task;
+use std::task::TaskBuilder;
 
 #[start]
 fn start(argc: int, argv: **u8) -> int {
@@ -38,7 +38,7 @@ fn main() {
     let render_context = window.render_context();
     let (send, recv) = channel();
 
-    let mut render_task = task().named("render task");
+    let mut render_task = TaskBuilder::new().named("render task");
     let render_task_done = render_task.future_result();
     render_task.spawn(proc() {
         render(render_context, recv);
@@ -62,7 +62,7 @@ fn render(context: glfw::RenderContext, finish: Receiver<()>) {
     context.make_current();
     loop {
         // Check if the rendering should stop.
-        if finish.try_recv() == std::comm::Data(()) { break };
+        if finish.try_recv() == Ok(()) { break };
 
         // Perform rendering calls
 
