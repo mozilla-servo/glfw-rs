@@ -2,6 +2,7 @@ VPATH=%VPATH%
 
 RUSTC ?= rustc
 RUSTFLAGS ?=
+EXT_DEPS ?=
 
 RUST_SRC = \
 	$(addprefix src/lib/,\
@@ -19,7 +20,7 @@ endif
 .PHONY: all
 all: libglfwrs.dummy
 
-libglfwrs.dummy: src/lib/lib.rs $(RUST_SRC)
+libglfwrs.dummy: src/lib/lib.rs $(RUST_SRC) $(EXT_DEPS)
 	$(RUSTC) $(RUSTFLAGS) -C link-args="$(LDFLAGS)" $< --out-dir .
 	touch $@
 
