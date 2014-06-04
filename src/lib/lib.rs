@@ -32,28 +32,28 @@
 //! extern crate glfw;
 //!
 //! use glfw::Context;
-//! 
+//!
 //! #[start]
 //! fn start(argc: int, argv: **u8) -> int {
 //!     // Run GLFW on the main thread
 //!     native::start(argc, argv, main)
 //! }
-//! 
+//!
 //! fn main() {
 //!    let glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
-//! 
+//!
 //!     // Create a windowed mode window and its OpenGL context
 //!     let window = glfw.create_window(300, 300, "Hello this is window", glfw::Windowed)
 //!         .expect("Failed to create GLFW window.");
-//! 
+//!
 //!     // Make the window's context current
 //!     window.make_current();
-//! 
+//!
 //!     // Loop until the user closes the window
 //!     while !window.should_close() {
 //!         // Swap front and back buffers
 //!         window.swap_buffers();
-//! 
+//!
 //!         // Poll for and process events
 //!         glfw.poll_events();
 //!         for (_, event) in glfw::flush_messages(&events) {
@@ -78,13 +78,13 @@ extern crate libc;
 
 use libc::{c_double, c_float, c_int};
 use libc::{c_uint, c_ushort, c_void};
-use std::cast;
+use std::mem;
 use std::comm::{channel, Receiver, Sender};
 use std::fmt;
 use std::kinds::marker;
 use std::ptr;
 use std::str;
-use std::slice;
+use std::vec;
 use semver::Version;
 
 /// Alias to `MouseButton1`, supplied for improved clarity.
@@ -284,9 +284,9 @@ impl fmt::Show for ShowAliases<MouseButton> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let ShowAliases(button) = *self;
         match button {
-            MouseButtonLeft     => write!(f.buf, "MouseButtonLeft"),
-            MouseButtonRight    => write!(f.buf, "MouseButtonRight"),
-            MouseButtonMiddle   => write!(f.buf, "MouseButtonMiddle"),
+            MouseButtonLeft     => write!(f, "MouseButtonLeft"),
+            MouseButtonRight    => write!(f, "MouseButtonRight"),
+            MouseButtonMiddle   => write!(f, "MouseButtonMiddle"),
             button              => button.fmt(f),
         }
     }
@@ -314,10 +314,10 @@ pub enum Error {
 
 /// An error callback. This can be supplied with some user data to be passed to
 /// the callback function when it is triggered.
-pub type ErrorCallback<UserData> = Callback<fn(Error, ~str, &UserData), UserData>;
+pub type ErrorCallback<UserData> = Callback<fn(Error, String, &UserData), UserData>;
 
 /// The function to be used with the `FAIL_ON_ERRORS` callback.
-pub fn fail_on_errors(_: Error, description: ~str, _: &()) {
+pub fn fail_on_errors(_: Error, description: String, _: &()) {
     fail!("GLFW Error: {}", description);
 }
 
@@ -326,7 +326,7 @@ pub static FAIL_ON_ERRORS: Option<ErrorCallback<()>> =
     Some(Callback { f: fail_on_errors, data: () });
 
 /// The function to be used with the `LOG_ERRORS` callback.
-pub fn log_errors(_: Error, description: ~str, _: &()) {
+pub fn log_errors(_: Error, description: String, _: &()) {
     error!("GLFW Error: {}", description);
 }
 
@@ -356,14 +356,14 @@ pub struct VidMode {
 
 /// Describes the gamma ramp of a monitor.
 pub struct GammaRamp {
-    pub red:    ~[c_ushort],
-    pub green:  ~[c_ushort],
-    pub blue:   ~[c_ushort],
+    pub red:    Vec<c_ushort>,
+    pub green:  Vec<c_ushort>,
+    pub blue:   Vec<c_ushort>,
 }
 
 /// An OpenGL process address.
 pub type GLProc = ffi::GLFWglproc;
- 
+
 /// A token from which to call various GLFW functions. It can be obtained by
 /// calling the `init` function. This cannot be sent to other tasks, and should
 /// only be initialized on the main platform thread. Whilst this might make
@@ -401,13 +401,13 @@ pub enum InitError {
 /// ~~~rust
 /// extern crate native;
 /// extern crate glfw;
-/// 
+///
 /// #[start]
 /// fn start(argc: int, argv: **u8) -> int {
 ///     // Run GLFW on the main thread
 ///     native::start(argc, argv, main)
 /// }
-/// 
+///
 /// fn main() {
 ///    let glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
 /// }
@@ -457,7 +457,7 @@ impl Glfw {
     /// ~~~rust
     /// use std::cell::Cell;
     ///
-    /// fn error_callback(_: glfw::Error, description: ~str, error_count: &Cell<uint>) {
+    /// fn error_callback(_: glfw::Error, description: String, error_count: &Cell<uint>) {
     ///     error!("GLFW error {}: {}", error_count.get(), description);
     ///     error_count.set(error_count.get() + 1);
     /// }
@@ -521,14 +521,14 @@ impl Glfw {
         unsafe {
             let mut count = 0;
             let ptr = ffi::glfwGetMonitors(&mut count);
-            f(slice::from_buf(ptr, count as uint).iter().map(|&ptr| {
+            f(vec::raw::from_buf(ptr, count as uint).iter().map(|&ptr| {
                 Monitor {
                     ptr: ptr,
                     no_copy: marker::NoCopy,
                     no_send: marker::NoSend,
                     no_share: marker::NoShare,
                 }
-            }).collect::<~[Monitor]>())
+            }).collect::<Vec<Monitor>>().as_slice())
         }
     }
 
@@ -626,7 +626,7 @@ impl Glfw {
         } else {
             let (drop_sender, drop_receiver) = channel();
             let (sender, receiver) = channel();
-            unsafe { ffi::glfwSetWindowUserPointer(ptr, cast::transmute(box sender)); }
+            unsafe { ffi::glfwSetWindowUserPointer(ptr, mem::transmute(box sender)); }
             Some((
                 Window {
                     ptr: ptr,
@@ -744,7 +744,7 @@ pub fn get_version() -> Version {
 }
 
 /// Wrapper for `glfwGetVersionString`.
-pub fn get_version_string() -> ~str {
+pub fn get_version_string() -> String {
     unsafe { str::raw::from_c_str(ffi::glfwGetVersionString()) }
 }
 
@@ -782,7 +782,7 @@ impl Monitor {
     }
 
     /// Wrapper for `glfwGetMonitorName`.
-    pub fn get_name(&self) -> ~str {
+    pub fn get_name(&self) -> String {
         unsafe { str::raw::from_c_str(ffi::glfwGetMonitorName(self.ptr)) }
     }
 
@@ -791,7 +791,7 @@ impl Monitor {
         unsafe {
             let mut count = 0;
             let ptr = ffi::glfwGetVideoModes(self.ptr, &mut count);
-            slice::from_buf(ptr, count as uint).iter().map(VidMode::from_glfw_vid_mode).collect()
+            vec::raw::from_buf(ptr, count as uint).iter().map(VidMode::from_glfw_vid_mode).collect()
         }
     }
 
@@ -812,9 +812,9 @@ impl Monitor {
         unsafe {
             let llramp = *ffi::glfwGetGammaRamp(self.ptr);
             GammaRamp {
-                red:    slice::from_buf(llramp.red,   llramp.size as uint),
-                green:  slice::from_buf(llramp.green, llramp.size as uint),
-                blue:   slice::from_buf(llramp.blue,  llramp.size as uint),
+                red:    vec::raw::from_buf(llramp.red,   llramp.size as uint),
+                green:  vec::raw::from_buf(llramp.green, llramp.size as uint),
+                blue:   vec::raw::from_buf(llramp.blue,  llramp.size as uint),
             }
         }
     }
@@ -866,7 +866,7 @@ impl fmt::Show for VidMode {
     /// ~"[width] x [height], [total_bits] ([red_bits] [green_bits] [blue_bits]) [refresh_rate] Hz"
     /// ~~~
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f.buf, "{} x {}, {} = {} + {} + {}, {} Hz",
+        write!(f, "{} x {}, {} = {} + {} + {}, {} Hz",
             self.width, self.height,
             self.red_bits + self.green_bits + self.blue_bits,
             self.red_bits, self.green_bits, self.blue_bits,
@@ -1031,12 +1031,12 @@ bitflags! {
 impl fmt::Show for Modifiers {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for (i, x) in [Shift, Control, Alt, Super].iter().filter(|x| self.contains(**x)).enumerate() {
-            if i != 0 { try!(write!(f.buf, ", ")) };
-            if      *x == Shift   { try!(write!(f.buf, "Shift"   )) }
-            else if *x == Control { try!(write!(f.buf, "Control" )) }
-            else if *x == Alt     { try!(write!(f.buf, "Alt"     )) }
-            else if *x == Super   { try!(write!(f.buf, "Super"   )) }
-            else                  { try!(write!(f.buf, "???"     )) }
+            if i != 0 { try!(write!(f, ", ")) };
+            if      *x == Shift   { try!(write!(f, "Shift"   )) }
+            else if *x == Control { try!(write!(f, "Control" )) }
+            else if *x == Alt     { try!(write!(f, "Alt"     )) }
+            else if *x == Super   { try!(write!(f, "Super"   )) }
+            else                  { try!(write!(f, "???"     )) }
         }
         Ok(())
     }
@@ -1104,24 +1104,12 @@ pub struct Window {
     drop_receiver: Receiver<ContextDropped>
 }
 
-#[cfg(not(target_word_size = "32"))]
 macro_rules! set_window_callback(
     ($should_poll:expr, $ll_fn:ident, $callback:ident) => ({
         if $should_poll {
             unsafe { ffi::$ll_fn(self.ptr, Some(callbacks::$callback)); }
         } else {
             unsafe { ffi::$ll_fn(self.ptr, None); }
-        }
-    })
-)
-// FIXME: workaround for mozilla/rust#11040
-#[cfg(target_word_size = "32")]
-macro_rules! set_window_callback(
-    ($should_poll:expr, $ll_fn:ident, $callback:ident) => ({
-        if $should_poll {
-            unsafe { ffi::$ll_fn(self.ptr, callbacks::$callback); }
-        } else {
-            unsafe { ffi::$ll_fn(self.ptr, cast::transmute(ptr::null::<libc::c_void>())); }
         }
     })
 )
@@ -1365,7 +1353,7 @@ impl Window {
 
     /// Wrapper for `glfwGetInputMode` called with `CURSOR`.
     pub fn get_cursor_mode(&self) -> CursorMode {
-        unsafe { cast::transmute(ffi::glfwGetInputMode(self.ptr, ffi::CURSOR)) }
+        unsafe { mem::transmute(ffi::glfwGetInputMode(self.ptr, ffi::CURSOR)) }
     }
 
     /// Wrapper for `glfwSetInputMode` called with `CURSOR`.
@@ -1395,12 +1383,12 @@ impl Window {
 
     /// Wrapper for `glfwGetKey`.
     pub fn get_key(&self, key: Key) -> Action {
-        unsafe { cast::transmute(ffi::glfwGetKey(self.ptr, key as c_int)) }
+        unsafe { mem::transmute(ffi::glfwGetKey(self.ptr, key as c_int)) }
     }
 
     /// Wrapper for `glfwGetMouseButton`.
     pub fn get_mouse_button(&self, button: MouseButton) -> Action {
-        unsafe { cast::transmute(ffi::glfwGetMouseButton(self.ptr, button as c_int)) }
+        unsafe { mem::transmute(ffi::glfwGetMouseButton(self.ptr, button as c_int)) }
     }
 
     /// Wrapper for `glfwGetCursorPos`.
@@ -1458,7 +1446,7 @@ impl Window {
     }
 
     /// Wrapper for `glfwGetClipboardString`.
-    pub fn get_clipboard_string(&self) -> ~str {
+    pub fn get_clipboard_string(&self) -> String {
         unsafe { str::raw::from_c_str(ffi::glfwGetClipboardString(self.ptr)) }
     }
 
@@ -1519,7 +1507,7 @@ impl Drop for Window {
         }
         if !self.ptr.is_null() {
             unsafe {
-                let _: Box<Sender<(f64, WindowEvent)>> = cast::transmute(ffi::glfwGetWindowUserPointer(self.ptr));
+                let _: Box<Sender<(f64, WindowEvent)>> = mem::transmute(ffi::glfwGetWindowUserPointer(self.ptr));
             }
         }
     }
@@ -1613,7 +1601,7 @@ impl Joystick {
         unsafe {
             let mut count = 0;
             let ptr = ffi::glfwGetJoystickAxes(self.id as c_int, &mut count);
-            slice::from_buf(ptr, count as uint).iter().map(|&a| a as f32).collect()
+            vec::raw::from_buf(ptr, count as uint).iter().map(|&a| a as f32).collect()
         }
     }
 
@@ -1622,12 +1610,12 @@ impl Joystick {
         unsafe {
             let mut count = 0;
             let ptr = ffi::glfwGetJoystickButtons(self.id as c_int, &mut count);
-            slice::from_buf(ptr, count as uint).iter().map(|&b| b as c_int).collect()
+            vec::raw::from_buf(ptr, count as uint).iter().map(|&b| b as c_int).collect()
         }
     }
 
     /// Wrapper for `glfwGetJoystickName`.
-    pub fn get_name(&self) -> ~str {
+    pub fn get_name(&self) -> String {
         unsafe { str::raw::from_c_str(ffi::glfwGetJoystickName(self.id as c_int)) }
     }
 }
