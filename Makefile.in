@@ -17,10 +17,15 @@ ifeq ($(UNAME),Linux)
 LDFLAGS = -L ../glfw -lglfw -lX11 -lXrandr -lXi -lXxf86vm -lGL
 endif
 
+
+.PHONY: link
+link:
+	sh $(VPATH)/etc/link-rs.sh "$(LINK_ARGS)" > $(VPATH)/src/lib/link.rs
+
 .PHONY: all
 all: libglfwrs.dummy
 
-libglfwrs.dummy: src/lib/lib.rs $(RUST_SRC) $(EXT_DEPS)
+libglfwrs.dummy: link src/lib/lib.rs $(RUST_SRC) $(EXT_DEPS)
 	$(RUSTC) $(RUSTFLAGS) -C link-args="$(LDFLAGS)" $< --out-dir .
 	touch $@
 
