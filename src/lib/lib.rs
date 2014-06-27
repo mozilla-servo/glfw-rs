@@ -74,7 +74,7 @@
 extern crate semver;
 extern crate sync;
 extern crate libc;
-#[phase(syntax, link)] extern crate log;
+#[phase(plugin, link)] extern crate log;
 
 use libc::{c_double, c_float, c_int};
 use libc::{c_uint, c_ushort, c_void};
@@ -118,7 +118,7 @@ extern { }
 
 /// Input actions.
 #[repr(C)]
-#[deriving(Clone, Eq, Hash, Show, TotalEq)]
+#[deriving(Clone, Eq, Hash, PartialEq, Show)]
 pub enum Action {
     Release                      = ffi::RELEASE,
     Press                        = ffi::PRESS,
@@ -127,7 +127,7 @@ pub enum Action {
 
 /// Input keys.
 #[repr(C)]
-#[deriving(Clone, Eq, Hash, Show, TotalEq)]
+#[deriving(Clone, Eq, Hash, PartialEq, Show)]
 pub enum Key {
     KeySpace                    = ffi::KEY_SPACE,
     KeyApostrophe               = ffi::KEY_APOSTROPHE,
@@ -255,7 +255,7 @@ pub enum Key {
 /// Mouse buttons. The `MouseButtonLeft`, `MouseButtonRight`, and
 /// `MouseButtonMiddle` aliases are supplied for convenience.
 #[repr(C)]
-#[deriving(Clone, Eq, Hash, Show, TotalEq)]
+#[deriving(Clone, Eq, Hash, PartialEq, Show)]
 pub enum MouseButton {
     /// The left mouse button. A `MouseButtonLeft` alias is provided to improve clarity.
     MouseButton1                = ffi::MOUSE_BUTTON_1,
@@ -299,7 +299,7 @@ pub struct Callback<Fn, UserData> {
 
 /// Tokens corresponding to various error types.
 #[repr(C)]
-#[deriving(Clone, Eq, Hash, Show)]
+#[deriving(Clone, Eq, Hash, PartialEq, Show)]
 pub enum Error {
     NotInitialized              = ffi::NOT_INITIALIZED,
     NoCurrentContext            = ffi::NO_CURRENT_CONTEXT,
@@ -337,7 +337,7 @@ pub static LOG_ERRORS: Option<ErrorCallback<()>> =
 
 /// Cursor modes.
 #[repr(C)]
-#[deriving(Clone, Eq, Hash, Show)]
+#[deriving(Clone, Eq, Hash, PartialEq, Show)]
 pub enum CursorMode {
     CursorNormal                = ffi::CURSOR_NORMAL,
     CursorHidden                = ffi::CURSOR_HIDDEN,
@@ -377,7 +377,7 @@ pub struct Glfw {
 }
 
 /// An error that might be returned when `glfw::init` is called.
-#[deriving(Eq, Show)]
+#[deriving(Eq, PartialEq, Show)]
 pub enum InitError {
     /// The library was already initialized.
     AlreadyInitialized,
@@ -712,7 +712,7 @@ impl Glfw {
     /// if it is supported by the current context.
     ///
     /// Wrapper for `glfwGetProcAddress`.
-    pub fn get_proc_address(&self, procname: &str) -> Option<GLProc> {
+    pub fn get_proc_address(&self, procname: &str) -> GLProc {
         unsafe {
             procname.with_c_str(|procname| {
                 ffi::glfwGetProcAddress(procname)
@@ -972,7 +972,7 @@ pub enum WindowHint {
 
 /// Client API tokens.
 #[repr(C)]
-#[deriving(Clone, Eq, Show)]
+#[deriving(Clone, Eq, PartialEq, Show)]
 pub enum ClientApi {
     OpenGlApi                   = ffi::OPENGL_API,
     OpenGlEsApi                 = ffi::OPENGL_ES_API,
@@ -980,7 +980,7 @@ pub enum ClientApi {
 
 /// Context robustness tokens.
 #[repr(C)]
-#[deriving(Clone, Eq, Show)]
+#[deriving(Clone, Eq, PartialEq, Show)]
 pub enum ContextRobustness {
     NoRobustness                = ffi::NO_ROBUSTNESS,
     NoResetNotification         = ffi::NO_RESET_NOTIFICATION,
@@ -989,7 +989,7 @@ pub enum ContextRobustness {
 
 /// OpenGL profile tokens.
 #[repr(C)]
-#[deriving(Clone, Eq, Show)]
+#[deriving(Clone, Eq, PartialEq, Show)]
 pub enum OpenGlProfile {
     OpenGlAnyProfile            = ffi::OPENGL_ANY_PROFILE,
     OpenGlCoreProfile           = ffi::OPENGL_CORE_PROFILE,
@@ -1091,17 +1091,17 @@ impl<'a, Message: Send> Iterator<Message> for FlushedMessages<'a, Message> {
     }
 }
 
-/// A message for notifying a `Window` that a `RenderContext` has been dropped.
-#[deriving(Eq)]
-struct ContextDropped;
-
 /// A struct that wraps a `*GLFWwindow` handle.
 pub struct Window {
     pub ptr: *ffi::GLFWwindow,
     pub glfw: Glfw,
     pub is_shared: bool,
-    drop_sender: Option<Sender<ContextDropped>>,
-    drop_receiver: Receiver<ContextDropped>
+    /// A `Sender` that can be cloned out to child `RenderContext`s.
+    drop_sender: Option<Sender<()>>,
+    /// Once all  child`RenderContext`s have been dropped, calling `try_recv()`
+    /// on the `drop_receiver` will result in an `Err(std::comm::Disconnected)`,
+    /// indicating that it is safe to drop the `Window`.
+    drop_receiver: Receiver<()>,
 }
 
 macro_rules! set_window_callback(
@@ -1490,21 +1490,24 @@ impl Window {
 #[unsafe_destructor]
 impl Drop for Window {
     /// Closes the window and performs the necessary cleanups. This will block
-    /// until all associated `RenderContext`s were also dropped.
+    /// until all associated `RenderContext`s were also dropped, and emit a
+    /// `debug!` message to that effect.
     ///
     /// Wrapper for `glfwDestroyWindow`.
     fn drop(&mut self) {
         drop(self.drop_sender.take());
 
+        // Check if all senders from the child `RenderContext`s have hung up.
         if self.drop_receiver.try_recv() != Err(std::comm::Disconnected) {
-            error!("Attempted to drop a Window before the `RenderContext` was dropped.");
-            error!("Blocking until the `RenderContext` was dropped.");
+            debug!("Attempted to drop a Window before the `RenderContext` was dropped.");
+            debug!("Blocking until the `RenderContext` was dropped.");
             let _ = self.drop_receiver.recv_opt();
         }
 
         if !self.is_shared {
             unsafe { ffi::glfwDestroyWindow(self.ptr); }
         }
+
         if !self.ptr.is_null() {
             unsafe {
                 let _: Box<Sender<(f64, WindowEvent)>> = mem::transmute(ffi::glfwGetWindowUserPointer(self.ptr));
@@ -1516,7 +1519,10 @@ impl Drop for Window {
 /// A rendering context that can be shared between tasks.
 pub struct RenderContext {
     ptr: *ffi::GLFWwindow,
-    drop_sender: Sender<ContextDropped>
+    /// As long as this sender is alive, it is not safe to drop the parent
+    /// `Window`.
+    #[allow(dead_code)]
+    drop_sender: Sender<()>,
 }
 
 /// Methods common to renderable contexts
@@ -1564,7 +1570,7 @@ pub fn make_context_current(context: Option<&Context>) {
 
 /// Joystick identifier tokens.
 #[repr(C)]
-#[deriving(Clone, Eq, Hash, Show)]
+#[deriving(Clone, Eq, PartialEq, Hash, Show)]
 pub enum JoystickId {
     Joystick1       = ffi::JOYSTICK_1,
     Joystick2       = ffi::JOYSTICK_2,
