@@ -16,12 +16,13 @@
 #![crate_type = "lib"]
 #![crate_type = "rlib"]
 #![crate_type = "dylib"]
-#![crate_id = "github.com/bjz/glfw-rs#glfw:0.1"]
+#![crate_name = "glfw"]
 #![comment = "Bindings and wrapper functions for glfw3."]
 
 #![feature(globs)]
 #![feature(macro_rules)]
 #![feature(phase)]
+#![feature(unsafe_destructor)]
 
 //! An ideomatic wrapper for the GLFW library.
 //!
@@ -117,7 +118,7 @@ extern { }
 extern { }
 
 /// Input actions.
-#[repr(C)]
+#[repr(i32)]
 #[deriving(Clone, Eq, Hash, PartialEq, Show)]
 pub enum Action {
     Release                      = ffi::RELEASE,
@@ -126,7 +127,7 @@ pub enum Action {
 }
 
 /// Input keys.
-#[repr(C)]
+#[repr(i32)]
 #[deriving(Clone, Eq, Hash, PartialEq, Show)]
 pub enum Key {
     KeySpace                    = ffi::KEY_SPACE,
@@ -254,7 +255,7 @@ pub enum Key {
 
 /// Mouse buttons. The `MouseButtonLeft`, `MouseButtonRight`, and
 /// `MouseButtonMiddle` aliases are supplied for convenience.
-#[repr(C)]
+#[repr(i32)]
 #[deriving(Clone, Eq, Hash, PartialEq, Show)]
 pub enum MouseButton {
     /// The left mouse button. A `MouseButtonLeft` alias is provided to improve clarity.
@@ -298,7 +299,7 @@ pub struct Callback<Fn, UserData> {
 }
 
 /// Tokens corresponding to various error types.
-#[repr(C)]
+#[repr(i32)]
 #[deriving(Clone, Eq, Hash, PartialEq, Show)]
 pub enum Error {
     NotInitialized              = ffi::NOT_INITIALIZED,
@@ -336,7 +337,7 @@ pub static LOG_ERRORS: Option<ErrorCallback<()>> =
     Some(Callback { f: log_errors, data: () });
 
 /// Cursor modes.
-#[repr(C)]
+#[repr(i32)]
 #[deriving(Clone, Eq, Hash, PartialEq, Show)]
 pub enum CursorMode {
     CursorNormal                = ffi::CURSOR_NORMAL,
@@ -521,7 +522,7 @@ impl Glfw {
         unsafe {
             let mut count = 0;
             let ptr = ffi::glfwGetMonitors(&mut count);
-            f(vec::raw::from_buf(ptr, count as uint).iter().map(|&ptr| {
+            f(vec::raw::from_buf(ptr as *const _, count as uint).iter().map(|&ptr| {
                 Monitor {
                     ptr: ptr,
                     no_copy: marker::NoCopy,
@@ -617,7 +618,7 @@ impl Glfw {
                     height as c_int,
                     title,
                     mode.to_ptr(),
-                    match share { Some(w) => w.ptr, None => ptr::null() }
+                    match share { Some(w) => w.ptr, None => ptr::mut_null() }
                 )
             })
         };
@@ -647,13 +648,13 @@ impl Glfw {
     pub fn make_context_current(&self, context: Option<&Window>) {
         match context {
             Some(window) => unsafe { ffi::glfwMakeContextCurrent(window.ptr) },
-            None         => unsafe { ffi::glfwMakeContextCurrent(ptr::null()) },
+            None         => unsafe { ffi::glfwMakeContextCurrent(ptr::mut_null()) },
         }
     }
 
     /// Wrapper for `glfwGetX11Display`
     #[cfg(target_os="linux")]
-    pub fn get_x11_display(&self) -> *c_void {
+    pub fn get_x11_display(&self) -> *mut c_void {
         unsafe { ffi::glfwGetX11Display() }
     }
 
@@ -754,7 +755,7 @@ pub type MonitorCallback<UserData> = Callback<fn(Monitor, MonitorEvent, &UserDat
 
 /// A struct that wraps a `*GLFWmonitor` handle.
 pub struct Monitor {
-    ptr: *ffi::GLFWmonitor,
+    ptr: *mut ffi::GLFWmonitor,
     no_copy: marker::NoCopy,
     no_send: marker::NoSend,
     no_share: marker::NoShare,
@@ -812,22 +813,22 @@ impl Monitor {
         unsafe {
             let llramp = *ffi::glfwGetGammaRamp(self.ptr);
             GammaRamp {
-                red:    vec::raw::from_buf(llramp.red,   llramp.size as uint),
-                green:  vec::raw::from_buf(llramp.green, llramp.size as uint),
-                blue:   vec::raw::from_buf(llramp.blue,  llramp.size as uint),
+                red:    vec::raw::from_buf(llramp.red as *const _,   llramp.size as uint),
+                green:  vec::raw::from_buf(llramp.green as *const _, llramp.size as uint),
+                blue:   vec::raw::from_buf(llramp.blue as *const _,  llramp.size as uint),
             }
         }
     }
 
     /// Wrapper for `glfwSetGammaRamp`.
-    pub fn set_gamma_ramp(&self, ramp: &GammaRamp) {
+    pub fn set_gamma_ramp(&self, mut ramp: GammaRamp) {
         unsafe {
             ffi::glfwSetGammaRamp(
                 self.ptr,
                 &ffi::GLFWgammaramp {
-                    red:    ramp.red.as_ptr(),
-                    green:  ramp.green.as_ptr(),
-                    blue:   ramp.blue.as_ptr(),
+                    red:    ramp.red.as_mut_ptr(),
+                    green:  ramp.green.as_mut_ptr(),
+                    blue:   ramp.blue.as_mut_ptr(),
                     size:   ramp.red.len() as c_uint,
                 }
             );
@@ -836,7 +837,7 @@ impl Monitor {
 }
 
 /// Monitor events.
-#[repr(C)]
+#[repr(i32)]
 pub enum MonitorEvent {
     Connected                   = ffi::CONNECTED,
     Disconnected                = ffi::DISCONNECTED,
@@ -971,7 +972,7 @@ pub enum WindowHint {
 }
 
 /// Client API tokens.
-#[repr(C)]
+#[repr(i32)]
 #[deriving(Clone, Eq, PartialEq, Show)]
 pub enum ClientApi {
     OpenGlApi                   = ffi::OPENGL_API,
@@ -979,7 +980,7 @@ pub enum ClientApi {
 }
 
 /// Context robustness tokens.
-#[repr(C)]
+#[repr(i32)]
 #[deriving(Clone, Eq, PartialEq, Show)]
 pub enum ContextRobustness {
     NoRobustness                = ffi::NO_ROBUSTNESS,
@@ -988,7 +989,7 @@ pub enum ContextRobustness {
 }
 
 /// OpenGL profile tokens.
-#[repr(C)]
+#[repr(i32)]
 #[deriving(Clone, Eq, PartialEq, Show)]
 pub enum OpenGlProfile {
     OpenGlAnyProfile            = ffi::OPENGL_ANY_PROFILE,
@@ -1009,10 +1010,10 @@ pub enum WindowMode<'a> {
 impl<'a> WindowMode<'a> {
     /// Returns a pointer to a monitor if the window is fullscreen, otherwise
     /// it returns a null pointer (if it is in windowed mode).
-    fn to_ptr(&self) -> *ffi::GLFWmonitor {
+    fn to_ptr(&self) -> *mut ffi::GLFWmonitor {
         match *self {
             FullScreen(ref monitor) => monitor.ptr,
-            Windowed                => ptr::null(),
+            Windowed                => ptr::mut_null(),
         }
     }
 }
@@ -1093,7 +1094,7 @@ impl<'a, Message: Send> Iterator<Message> for FlushedMessages<'a, Message> {
 
 /// A struct that wraps a `*GLFWwindow` handle.
 pub struct Window {
-    pub ptr: *ffi::GLFWwindow,
+    pub ptr: *mut ffi::GLFWwindow,
     pub glfw: Glfw,
     pub is_shared: bool,
     /// A `Sender` that can be cloned out to child `RenderContext`s.
@@ -1104,15 +1105,15 @@ pub struct Window {
     drop_receiver: Receiver<()>,
 }
 
-macro_rules! set_window_callback(
-    ($should_poll:expr, $ll_fn:ident, $callback:ident) => ({
+macro_rules! set_window_callback {
+    ($window:ident, $should_poll:expr, $ll_fn:ident, $callback:ident) => ({
         if $should_poll {
-            unsafe { ffi::$ll_fn(self.ptr, Some(callbacks::$callback)); }
+            unsafe { ffi::$ll_fn($window.ptr, Some(callbacks::$callback)); }
         } else {
-            unsafe { ffi::$ll_fn(self.ptr, None); }
+            unsafe { ffi::$ll_fn($window.ptr, None); }
         }
     })
-)
+}
 
 impl Window {
     /// Wrapper for `glfwCreateWindow`.
@@ -1302,7 +1303,7 @@ impl Window {
 
     /// Wrapper for `glfwSetWindowPosCallback`.
     pub fn set_pos_polling(&self, should_poll: bool) {
-        set_window_callback!(should_poll, glfwSetWindowPosCallback, window_pos_callback);
+        set_window_callback!(self, should_poll, glfwSetWindowPosCallback, window_pos_callback);
     }
 
     pub fn set_all_polling(&self, should_poll: bool) {
@@ -1323,32 +1324,32 @@ impl Window {
 
     /// Wrapper for `glfwSetWindowSizeCallback`.
     pub fn set_size_polling(&self, should_poll: bool) {
-        set_window_callback!(should_poll, glfwSetWindowSizeCallback, window_size_callback);
+        set_window_callback!(self, should_poll, glfwSetWindowSizeCallback, window_size_callback);
     }
 
     /// Wrapper for `glfwSetWindowCloseCallback`.
     pub fn set_close_polling(&self, should_poll: bool) {
-        set_window_callback!(should_poll, glfwSetWindowCloseCallback, window_close_callback);
+        set_window_callback!(self, should_poll, glfwSetWindowCloseCallback, window_close_callback);
     }
 
     /// Wrapper for `glfwSetWindowRefreshCallback`.
     pub fn set_refresh_polling(&self, should_poll: bool) {
-        set_window_callback!(should_poll, glfwSetWindowRefreshCallback, window_refresh_callback);
+        set_window_callback!(self, should_poll, glfwSetWindowRefreshCallback, window_refresh_callback);
     }
 
     /// Wrapper for `glfwSetWindowFocusCallback`.
     pub fn set_focus_polling(&self, should_poll: bool) {
-        set_window_callback!(should_poll, glfwSetWindowFocusCallback, window_focus_callback);
+        set_window_callback!(self, should_poll, glfwSetWindowFocusCallback, window_focus_callback);
     }
 
     /// Wrapper for `glfwSetWindowIconifyCallback`.
     pub fn set_iconify_polling(&self, should_poll: bool) {
-        set_window_callback!(should_poll, glfwSetWindowIconifyCallback, window_iconify_callback);
+        set_window_callback!(self, should_poll, glfwSetWindowIconifyCallback, window_iconify_callback);
     }
 
     /// Wrapper for `glfwSetFramebufferSizeCallback`.
     pub fn set_framebuffer_size_polling(&self, should_poll: bool) {
-        set_window_callback!(should_poll, glfwSetFramebufferSizeCallback, framebuffer_size_callback);
+        set_window_callback!(self, should_poll, glfwSetFramebufferSizeCallback, framebuffer_size_callback);
     }
 
     /// Wrapper for `glfwGetInputMode` called with `CURSOR`.
@@ -1408,32 +1409,32 @@ impl Window {
 
     /// Wrapper for `glfwSetKeyCallback`.
     pub fn set_key_polling(&self, should_poll: bool) {
-        set_window_callback!(should_poll, glfwSetKeyCallback, key_callback);
+        set_window_callback!(self, should_poll, glfwSetKeyCallback, key_callback);
     }
 
     /// Wrapper for `glfwSetCharCallback`.
     pub fn set_char_polling(&self, should_poll: bool) {
-        set_window_callback!(should_poll, glfwSetCharCallback, char_callback);
+        set_window_callback!(self, should_poll, glfwSetCharCallback, char_callback);
     }
 
     /// Wrapper for `glfwSetMouseButtonCallback`.
     pub fn set_mouse_button_polling(&self, should_poll: bool) {
-        set_window_callback!(should_poll, glfwSetMouseButtonCallback, mouse_button_callback);
+        set_window_callback!(self, should_poll, glfwSetMouseButtonCallback, mouse_button_callback);
     }
 
     /// Wrapper for `glfwSetCursorPosCallback`.
     pub fn set_cursor_pos_polling(&self, should_poll: bool) {
-        set_window_callback!(should_poll, glfwSetCursorPosCallback, cursor_pos_callback);
+        set_window_callback!(self, should_poll, glfwSetCursorPosCallback, cursor_pos_callback);
     }
 
     /// Wrapper for `glfwSetCursorEnterCallback`.
     pub fn set_cursor_enter_polling(&self, should_poll: bool) {
-        set_window_callback!(should_poll, glfwSetCursorEnterCallback, cursor_enter_callback);
+        set_window_callback!(self, should_poll, glfwSetCursorEnterCallback, cursor_enter_callback);
     }
 
     /// Wrapper for `glfwSetScrollCallback`.
     pub fn set_scroll_polling(&self, should_poll: bool) {
-        set_window_callback!(should_poll, glfwSetScrollCallback, scroll_callback);
+        set_window_callback!(self, should_poll, glfwSetScrollCallback, scroll_callback);
     }
 
     /// Wrapper for `glfwGetClipboardString`.
@@ -1452,37 +1453,37 @@ impl Window {
 
     /// Wrapper for `glfwGetWin32Window`
     #[cfg(target_os="win32")]
-    pub fn get_win32_window(&self) -> *c_void {
+    pub fn get_win32_window(&self) -> *mut c_void {
         unsafe { ffi::glfwGetWin32Window(self.ptr) }
     }
 
     /// Wrapper for `glfwGetWGLContext`
     #[cfg(target_os="win32")]
-    pub fn get_wgl_context(&self) -> *c_void {
+    pub fn get_wgl_context(&self) -> *mut c_void {
         unsafe { ffi::glfwGetWGLContext(self.ptr) }
     }
 
     /// Wrapper for `glfwGetCocoaWindow`
     #[cfg(target_os="macos")]
-    pub fn get_cocoa_window(&self) -> *c_void {
+    pub fn get_cocoa_window(&self) -> *mut c_void {
         unsafe { ffi::glfwGetCocoaWindow(self.ptr) }
     }
 
     /// Wrapper for `glfwGetNSGLContext`
     #[cfg(target_os="macos")]
-    pub fn get_nsgl_context(&self) -> *c_void {
+    pub fn get_nsgl_context(&self) -> *mut c_void {
         unsafe { ffi::glfwGetNSGLContext(self.ptr) }
     }
 
     /// Wrapper for `glfwGetX11Window`
     #[cfg(target_os="linux")]
-    pub fn get_x11_window(&self) -> *c_void {
+    pub fn get_x11_window(&self) -> *mut c_void {
         unsafe { ffi::glfwGetX11Window(self.ptr) }
     }
 
     /// Wrapper for `glfwGetGLXContext`
     #[cfg(target_os="linux")]
-    pub fn get_glx_context(&self) -> *c_void {
+    pub fn get_glx_context(&self) -> *mut c_void {
         unsafe { ffi::glfwGetGLXContext(self.ptr) }
     }
 }
@@ -1518,7 +1519,7 @@ impl Drop for Window {
 
 /// A rendering context that can be shared between tasks.
 pub struct RenderContext {
-    ptr: *ffi::GLFWwindow,
+    ptr: *mut ffi::GLFWwindow,
     /// As long as this sender is alive, it is not safe to drop the parent
     /// `Window`.
     #[allow(dead_code)]
@@ -1528,7 +1529,7 @@ pub struct RenderContext {
 /// Methods common to renderable contexts
 pub trait Context {
     /// Returns the pointer to the underlying `GLFWwindow`.
-    fn window_ptr(&self) -> *ffi::GLFWwindow;
+    fn window_ptr(&self) -> *mut ffi::GLFWwindow;
 
     /// Swaps the front and back buffers of the window. If the swap interval is
     /// greater than zero, the GPU driver waits the specified number of screen
@@ -1553,23 +1554,23 @@ pub trait Context {
 }
 
 impl Context for Window {
-    fn window_ptr(&self) -> *ffi::GLFWwindow { self.ptr }
+    fn window_ptr(&self) -> *mut ffi::GLFWwindow { self.ptr }
 }
 
 impl Context for RenderContext {
-    fn window_ptr(&self) -> *ffi::GLFWwindow { self.ptr }
+    fn window_ptr(&self) -> *mut ffi::GLFWwindow { self.ptr }
 }
 
 /// Wrapper for `glfwMakeContextCurrent`.
 pub fn make_context_current(context: Option<&Context>) {
     match context {
         Some(ctx) => unsafe { ffi::glfwMakeContextCurrent(ctx.window_ptr()) },
-        None      => unsafe { ffi::glfwMakeContextCurrent(ptr::null()) },
+        None      => unsafe { ffi::glfwMakeContextCurrent(ptr::mut_null()) },
     }
 }
 
 /// Joystick identifier tokens.
-#[repr(C)]
+#[repr(i32)]
 #[deriving(Clone, Eq, PartialEq, Hash, Show)]
 pub enum JoystickId {
     Joystick1       = ffi::JOYSTICK_1,

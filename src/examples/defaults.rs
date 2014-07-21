@@ -19,7 +19,7 @@ extern crate glfw;
 use glfw::Context;
 
 #[start]
-fn start(argc: int, argv: **u8) -> int {
+fn start(argc: int, argv: *const *const u8) -> int {
     native::start(argc, argv, main)
 }
 
@@ -36,7 +36,7 @@ fn main() {
     let (width, height) = window.get_size();
     println!("window size: ({}, {})", width, height);
 
-    println!("Context version: {:s}",         window.get_context_version().to_str());
+    println!("Context version: {}",           window.get_context_version());
     println!("OpenGL forward compatible: {}", window.is_opengl_forward_compat());
     println!("OpenGL debug context: {}",      window.is_opengl_debug_context());
     println!("OpenGL profile: {}",            window.get_opengl_profile());
@@ -96,11 +96,11 @@ mod gl {
 
     #[inline(never)]
     #[allow(non_snake_case_functions)]
-    pub unsafe fn GetIntegerv(pname: GLenum, params: *GLint) {
+    pub unsafe fn GetIntegerv(pname: GLenum, params: *const GLint) {
         glGetIntegerv(pname, params)
     }
 
     extern "C" {
-        fn glGetIntegerv(pname: GLenum, params: *GLint);
+        fn glGetIntegerv(pname: GLenum, params: *const GLint);
     }
 }
