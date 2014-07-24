@@ -100,7 +100,7 @@ pub mod ffi;
 mod callbacks;
 
 #[cfg(target_os = "linux")]
-#[link(name = "glfw")]
+#[link(name = "glfw", kind = "static")]
 #[link(name = "X11")]
 #[link(name = "Xrandr")]
 #[link(name = "Xi")]
@@ -109,7 +109,7 @@ mod callbacks;
 extern { }
 
 #[cfg(target_os = "macos")]
-#[link(name = "glfw")]
+#[link(name = "glfw", kind = "static")]
 #[link(name = "Cocoa", kind = "framework")]
 #[link(name = "OpenGL", kind = "framework")]
 #[link(name = "IOKit", kind = "framework")]
