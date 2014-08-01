@@ -5,7 +5,7 @@ RUSTFLAGS ?=
 EXT_DEPS ?=
 
 RUST_SRC = \
-	$(addprefix src/lib/,\
+	$(addprefix src/,\
 		ffi.rs \
 		callbacks.rs)
 
@@ -20,8 +20,8 @@ endif
 .PHONY: all
 all: libglfwrs.dummy
 
-libglfwrs.dummy: src/lib/lib.rs $(RUST_SRC) $(EXT_DEPS)
-	$(RUSTC) $(RUSTFLAGS) -C link-args="$(LDFLAGS)" $< --out-dir .
+libglfwrs.dummy: src/glfw.rs $(RUST_SRC) $(EXT_DEPS)
+	$(RUSTC) $(RUSTFLAGS) -C link-args="$(LDFLAGS)" $< --out-dir . --crate-type rlib
 	touch $@
 
 .PHONY: check
