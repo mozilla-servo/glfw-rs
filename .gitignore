@@ -27,3 +27,4 @@
 /.rust/
 rusti.sh
 watch.sh
+/doc

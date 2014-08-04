@@ -27,6 +27,12 @@ libglfwrs.dummy: src/glfw.rs $(RUST_SRC) $(EXT_DEPS)
 .PHONY: check
 check:
 
+.PHONY: doc
+doc: $(RUSTDOC_TARGET)/glfw/index.html
+
+$(RUSTDOC_TARGET)/glfw/index.html: src/glfw.rs $(RUST_SRC) $(EXT_DEPS)
+	$(RUSTDOC) $(RUSTDOC_FLAGS) $< -o $(RUSTDOC_TARGET)
+
 .PHONY: clean
 clean:
 	rm -f *.o *.a *.so *.dylib *.rlib *.dll *.dummy *-test
