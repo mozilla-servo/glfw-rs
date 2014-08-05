@@ -1,4 +1,4 @@
-// Copyright 2013 The GLFW-RS Developers. For a full listing of the authors,
+// Copyright 2013-2014 The GLFW-RS Developers. For a full listing of the authors,
 // refer to the AUTHORS file at the top-level directory of this distribution.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -84,7 +84,7 @@ use std::comm::{channel, Receiver, Sender};
 use std::fmt;
 use std::kinds::marker;
 use std::ptr;
-use std::str;
+use std::string;
 use std::vec;
 use semver::Version;
 
@@ -501,7 +501,14 @@ impl Glfw {
     /// This is usually the monitor where elements like the Windows task bar or
     /// the OS X menu bar is located.
     ///
-    /// Wrapper for `glfwGetPrimaryMonitor`.
+    /// # Example
+    ///
+    /// ~~~rust
+    /// let (window, events) = glfw.with_primary_monitor(|m| {
+    ///     glfw.create_window(300, 300, "Hello this is window",
+    ///         m.map_or(glfw::Windowed, |m| glfw::FullScreen(m)))
+    /// }).expect("Failed to create GLFW window.");
+    /// ~~~
     pub fn with_primary_monitor<T>(&self, f: |Option<&Monitor>| -> T) -> T {
         match unsafe { ffi::glfwGetPrimaryMonitor() } {
             ptr if ptr.is_null() => f(None),
@@ -517,7 +524,15 @@ impl Glfw {
     /// Supplies a vector of the currently connected monitors to the closure
     /// provided.
     ///
-    /// Wrapper for `glfwGetMonitors`.
+    /// # Example
+    ///
+    /// ~~~rust
+    /// glfw.with_connected_monitors(|monitors| {
+    ///     for monitor in monitors.iter() {
+    ///         println!("{}: {}", monitor.get_name(), monitor.get_video_mode());
+    ///     }
+    /// });
+    /// ~~~
     pub fn with_connected_monitors<T>(&self, f: |&[Monitor]| -> T) -> T {
         unsafe {
             let mut count = 0;
@@ -746,7 +761,7 @@ pub fn get_version() -> Version {
 
 /// Wrapper for `glfwGetVersionString`.
 pub fn get_version_string() -> String {
-    unsafe { str::raw::from_c_str(ffi::glfwGetVersionString()) }
+    unsafe { string::raw::from_buf(ffi::glfwGetVersionString() as *const u8) }
 }
 
 /// An monitor callback. This can be supplied with some user data to be passed
@@ -784,7 +799,7 @@ impl Monitor {
 
     /// Wrapper for `glfwGetMonitorName`.
     pub fn get_name(&self) -> String {
-        unsafe { str::raw::from_c_str(ffi::glfwGetMonitorName(self.ptr)) }
+        unsafe { string::raw::from_buf(ffi::glfwGetMonitorName(self.ptr) as *const u8) }
     }
 
     /// Wrapper for `glfwGetVideoModes`.
@@ -1020,7 +1035,6 @@ impl<'a> WindowMode<'a> {
 
 bitflags! {
     #[doc = "Key modifiers"]
-    #[deriving(Hash)]
     flags Modifiers: c_int {
         static Shift       = ffi::MOD_SHIFT,
         static Control     = ffi::MOD_CONTROL,
@@ -1218,7 +1232,16 @@ impl Window {
 
     /// Returns whether the window is fullscreen or windowed.
     ///
-    /// Wrapper for `glfwGetWindowMonitor`.
+    /// # Example
+    ///
+    /// ~~~rust
+    /// window.with_window_mode(|mode| {
+    ///     match mode {
+    ///         glfw::Windowed() => println!("Windowed"),
+    ///         glfw::FullScreen(m) => println!("FullScreen({})", m.get_name()),
+    ///     }
+    /// });
+    /// ~~~
     pub fn with_window_mode<T>(&self, f: |WindowMode| -> T) -> T {
         let ptr = unsafe { ffi::glfwGetWindowMonitor(self.ptr) };
         if ptr.is_null() {
@@ -1448,7 +1471,7 @@ impl Window {
 
     /// Wrapper for `glfwGetClipboardString`.
     pub fn get_clipboard_string(&self) -> String {
-        unsafe { str::raw::from_c_str(ffi::glfwGetClipboardString(self.ptr)) }
+        unsafe { string::raw::from_buf(ffi::glfwGetClipboardString(self.ptr) as *const u8) }
     }
 
     /// Wrapper for `glfwGetWin32Window`
@@ -1623,6 +1646,6 @@ impl Joystick {
 
     /// Wrapper for `glfwGetJoystickName`.
     pub fn get_name(&self) -> String {
-        unsafe { str::raw::from_c_str(ffi::glfwGetJoystickName(self.id as c_int)) }
+        unsafe { string::raw::from_buf(ffi::glfwGetJoystickName(self.id as c_int) as *const u8) }
     }
 }
