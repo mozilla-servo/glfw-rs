@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#![crate_name = "link_glfw"]
 #![feature(plugin_registrar, quote)]
 
 extern crate rustc;
@@ -20,14 +21,13 @@ extern crate syntax;
 
 use std::gc::{Gc, GC};
 use std::io::Command;
-use std::mem;
 use std::str;
 use syntax::ast;
 use syntax::codemap;
 use syntax::ext::base;
 use syntax::ext::build::AstBuilder;
 use syntax::parse::token;
-use syntax::parse::token::intern_and_get_ident as intern_str;
+use intern_str = syntax::parse::token::intern_and_get_ident;
 
 #[plugin_registrar]
 pub fn registrar(reg: &mut rustc::plugin::Registry) {
@@ -63,7 +63,7 @@ fn attr_link(context: &mut base::ExtCtxt, span: codemap::Span,
 }
 
 pub fn expand(context: &mut base::ExtCtxt, span: codemap::Span,
-              meta_item: Gc<ast::MetaItem>, item: Gc<ast::Item>
+              _meta_item: Gc<ast::MetaItem>, item: Gc<ast::Item>
               ) -> Gc<ast::Item> {
     let out = Command::new("pkg-config")
         .arg("--static")

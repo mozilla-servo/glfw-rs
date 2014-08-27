@@ -90,11 +90,11 @@ use std::vec;
 use semver::Version;
 
 /// Alias to `MouseButton1`, supplied for improved clarity.
-pub use self::MouseButton1 as MouseButtonLeft;
+pub use MouseButtonLeft = self::MouseButton1;
 /// Alias to `MouseButton2`, supplied for improved clarity.
-pub use self::MouseButton2 as MouseButtonRight;
+pub use MouseButtonRight = self::MouseButton2;
 /// Alias to `MouseButton3`, supplied for improved clarity.
-pub use self::MouseButton3 as MouseButtonMiddle;
+pub use MouseButtonMiddle = self::MouseButton3;
 
 pub mod ffi;
 mod callbacks;
@@ -356,7 +356,7 @@ pub type GLProc = ffi::GLFWglproc;
 #[deriving(Clone)]
 pub struct Glfw {
     no_send: marker::NoSend,
-    no_share: marker::NoSync,
+    no_share: marker::NoShare,
 }
 
 /// An error that might be returned when `glfw::init` is called.
@@ -428,7 +428,7 @@ pub fn init<UserData: 'static>(mut callback: Option<ErrorCallback<UserData>>) ->
     }
     result.map(|_| Glfw {
         no_send: marker::NoSend,
-        no_share: marker::NoSync,
+        no_share: marker::NoShare,
     })
 }
 
@@ -498,7 +498,7 @@ impl Glfw {
                 ptr: ptr,
                 no_copy: marker::NoCopy,
                 no_send: marker::NoSend,
-                no_share: marker::NoSync,
+                no_share: marker::NoShare,
             })),
         }
     }
@@ -524,7 +524,7 @@ impl Glfw {
                     ptr: ptr,
                     no_copy: marker::NoCopy,
                     no_send: marker::NoSend,
-                    no_share: marker::NoSync,
+                    no_share: marker::NoShare,
                 }
             }).collect::<Vec<Monitor>>().as_slice())
         }
@@ -755,7 +755,7 @@ pub struct Monitor {
     ptr: *mut ffi::GLFWmonitor,
     no_copy: marker::NoCopy,
     no_send: marker::NoSend,
-    no_share: marker::NoSync,
+    no_share: marker::NoShare,
 }
 
 impl Monitor {
@@ -1233,7 +1233,7 @@ impl Window {
                 ptr: ptr,
                 no_copy: marker::NoCopy,
                 no_send: marker::NoSend,
-                no_share: marker::NoSync,
+                no_share: marker::NoShare,
             }))
         }
     }
