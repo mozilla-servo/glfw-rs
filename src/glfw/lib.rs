@@ -75,7 +75,8 @@
 extern crate semver;
 extern crate sync;
 extern crate libc;
-#[phase(plugin, link)] extern crate log;
+#[phase(plugin, link)]
+extern crate log;
 
 use libc::{c_double, c_float, c_int};
 use libc::{c_uint, c_ushort, c_void};
@@ -89,33 +90,14 @@ use std::vec;
 use semver::Version;
 
 /// Alias to `MouseButton1`, supplied for improved clarity.
-pub use MouseButtonLeft     = self::MouseButton1;
+pub use self::MouseButton1 as MouseButtonLeft;
 /// Alias to `MouseButton2`, supplied for improved clarity.
-pub use MouseButtonRight    = self::MouseButton2;
+pub use self::MouseButton2 as MouseButtonRight;
 /// Alias to `MouseButton3`, supplied for improved clarity.
-pub use MouseButtonMiddle   = self::MouseButton3;
+pub use self::MouseButton3 as MouseButtonMiddle;
 
 pub mod ffi;
-
 mod callbacks;
-
-#[cfg(target_os = "linux")]
-#[link(name = "glfw", kind = "static")]
-#[link(name = "X11")]
-#[link(name = "Xrandr")]
-#[link(name = "Xi")]
-#[link(name = "Xxf86vm")]
-#[link(name = "GL")]
-extern { }
-
-#[cfg(target_os = "macos")]
-#[link(name = "glfw", kind = "static")]
-#[link(name = "Cocoa", kind = "framework")]
-#[link(name = "OpenGL", kind = "framework")]
-#[link(name = "IOKit", kind = "framework")]
-#[link(name = "CoreFoundation", kind = "framework")]
-#[link(name = "QuartzCore", kind = "framework")]
-extern { }
 
 /// Input actions.
 #[repr(i32)]
@@ -374,7 +356,7 @@ pub type GLProc = ffi::GLFWglproc;
 #[deriving(Clone)]
 pub struct Glfw {
     no_send: marker::NoSend,
-    no_share: marker::NoShare,
+    no_share: marker::NoSync,
 }
 
 /// An error that might be returned when `glfw::init` is called.
@@ -446,7 +428,7 @@ pub fn init<UserData: 'static>(mut callback: Option<ErrorCallback<UserData>>) ->
     }
     result.map(|_| Glfw {
         no_send: marker::NoSend,
-        no_share: marker::NoShare,
+        no_share: marker::NoSync,
     })
 }
 
@@ -516,7 +498,7 @@ impl Glfw {
                 ptr: ptr,
                 no_copy: marker::NoCopy,
                 no_send: marker::NoSend,
-                no_share: marker::NoShare,
+                no_share: marker::NoSync,
             })),
         }
     }
@@ -542,7 +524,7 @@ impl Glfw {
                     ptr: ptr,
                     no_copy: marker::NoCopy,
                     no_send: marker::NoSend,
-                    no_share: marker::NoShare,
+                    no_share: marker::NoSync,
                 }
             }).collect::<Vec<Monitor>>().as_slice())
         }
@@ -773,7 +755,7 @@ pub struct Monitor {
     ptr: *mut ffi::GLFWmonitor,
     no_copy: marker::NoCopy,
     no_send: marker::NoSend,
-    no_share: marker::NoShare,
+    no_share: marker::NoSync,
 }
 
 impl Monitor {
@@ -1251,7 +1233,7 @@ impl Window {
                 ptr: ptr,
                 no_copy: marker::NoCopy,
                 no_send: marker::NoSend,
-                no_share: marker::NoShare,
+                no_share: marker::NoSync,
             }))
         }
     }
@@ -1475,13 +1457,13 @@ impl Window {
     }
 
     /// Wrapper for `glfwGetWin32Window`
-    #[cfg(target_os="win32")]
+    #[cfg(target_os="windows")]
     pub fn get_win32_window(&self) -> *mut c_void {
         unsafe { ffi::glfwGetWin32Window(self.ptr) }
     }
 
     /// Wrapper for `glfwGetWGLContext`
-    #[cfg(target_os="win32")]
+    #[cfg(target_os="windows")]
     pub fn get_wgl_context(&self) -> *mut c_void {
         unsafe { ffi::glfwGetWGLContext(self.ptr) }
     }
