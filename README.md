@@ -28,7 +28,7 @@ extern crate glfw;
 use glfw::Context;
 
 #[start]
-fn start(argc: int, argv: **u8) -> int {
+fn start(argc: int, argv: *const *const u8) -> int {
     native::start(argc, argv, main)
 }
 
@@ -59,13 +59,14 @@ fn handle_window_event(window: &glfw::Window, event: glfw::WindowEvent) {
 }
 ~~~
 
-## Compilation
+## Using glfw-rs
 
 ### Prerequisites
 
 Make sure you have [compiled and installed GLFW 3.x](http://www.glfw.org/docs/latest/compile.html).
 You might be able to find it on your package manager, for example on OS X:
-`brew install --static glfw3`. If not you can download and build the library
+`brew install --static glfw3` (you may need to run `brew tap homebrew/versions`).
+If not you can download and build the library
 [from the source](http://www.glfw.org/docs/latest/compile.html) supplied on the
 GLFW website. Note that if you compile GLFW with CMake on Linux, you will have
 to supply the `-DCMAKE_C_FLAGS=-fPIC` argument. You may install GLFW to your
@@ -76,30 +77,18 @@ binaries when you call `make` or `make lib`:
 GLFW_LIB_DIR=path/to/glfw/lib/directory make
 ~~~
 
-### Targets
+### Including glfw-rs in your project
 
-- `make`: library, examples, docs
-- `make lib`: libs only
-- `make doc`: docs only
-- `make examples`: build examples
-- `make src/examples/<example>.rs`: build a specific example
-- `make clean`: clean up all build files
+Add this to your `Cargo.toml`:
 
-### Cargo-lite
-
-You can use [cargo-lite](https://github.com/cmr/cargo-lite):
-
-~~~
-cargo-lite.py install --git https://github.com/bjz/glfw-rs.git glfw-rs
+~~~toml
+[dependencies.glfw]
+git = "https://github.com/bjz/glfw-rs.git"
 ~~~
 
-### Compiling with Rust-Empty
+### Building and running the examples
 
-The following command compiles to the folder 'target/cpu-vendor-os/lib':
-
-`make link && make -f rust-empty.mk`
-
-For more information see [Rust-Empty](https://github.com/bvssvni/rust-empty)
+Run `cargo test`, then `./target/test/<example_name>`.
 
 ## Support
 

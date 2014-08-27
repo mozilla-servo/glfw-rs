@@ -75,7 +75,8 @@
 extern crate semver;
 extern crate sync;
 extern crate libc;
-#[phase(plugin, link)] extern crate log;
+#[phase(plugin, link)]
+extern crate log;
 
 use libc::{c_double, c_float, c_int};
 use libc::{c_uint, c_ushort, c_void};
@@ -89,33 +90,14 @@ use std::vec;
 use semver::Version;
 
 /// Alias to `MouseButton1`, supplied for improved clarity.
-pub use MouseButtonLeft     = self::MouseButton1;
+pub use MouseButtonLeft = self::MouseButton1;
 /// Alias to `MouseButton2`, supplied for improved clarity.
-pub use MouseButtonRight    = self::MouseButton2;
+pub use MouseButtonRight = self::MouseButton2;
 /// Alias to `MouseButton3`, supplied for improved clarity.
-pub use MouseButtonMiddle   = self::MouseButton3;
+pub use MouseButtonMiddle = self::MouseButton3;
 
 pub mod ffi;
-
 mod callbacks;
-
-#[cfg(target_os = "linux")]
-#[link(name = "glfw", kind = "static")]
-#[link(name = "X11")]
-#[link(name = "Xrandr")]
-#[link(name = "Xi")]
-#[link(name = "Xxf86vm")]
-#[link(name = "GL")]
-extern { }
-
-#[cfg(target_os = "macos")]
-#[link(name = "glfw", kind = "static")]
-#[link(name = "Cocoa", kind = "framework")]
-#[link(name = "OpenGL", kind = "framework")]
-#[link(name = "IOKit", kind = "framework")]
-#[link(name = "CoreFoundation", kind = "framework")]
-#[link(name = "QuartzCore", kind = "framework")]
-extern { }
 
 /// Input actions.
 #[repr(i32)]
@@ -1475,13 +1457,13 @@ impl Window {
     }
 
     /// Wrapper for `glfwGetWin32Window`
-    #[cfg(target_os="win32")]
+    #[cfg(target_os="windows")]
     pub fn get_win32_window(&self) -> *mut c_void {
         unsafe { ffi::glfwGetWin32Window(self.ptr) }
     }
 
     /// Wrapper for `glfwGetWGLContext`
-    #[cfg(target_os="win32")]
+    #[cfg(target_os="windows")]
     pub fn get_wgl_context(&self) -> *mut c_void {
         unsafe { ffi::glfwGetWGLContext(self.ptr) }
     }
