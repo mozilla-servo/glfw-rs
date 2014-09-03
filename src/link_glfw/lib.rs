@@ -16,34 +16,49 @@
 #![crate_name = "link_glfw"]
 #![feature(plugin_registrar, quote)]
 
+#[cfg(not(target_os="android"))]
 extern crate rustc;
+#[cfg(not(target_os="android"))]
 extern crate syntax;
 
+#[cfg(not(target_os="android"))]
 use std::gc::{Gc, GC};
+#[cfg(not(target_os="android"))]
 use std::io::Command;
+#[cfg(not(target_os="android"))]
 use std::str;
+#[cfg(not(target_os="android"))]
 use syntax::ast;
+#[cfg(not(target_os="android"))]
 use syntax::codemap;
+#[cfg(not(target_os="android"))]
 use syntax::ext::base;
+#[cfg(not(target_os="android"))]
 use syntax::ext::build::AstBuilder;
+#[cfg(not(target_os="android"))]
 use syntax::parse::token;
+#[cfg(not(target_os="android"))]
 use intern_str = syntax::parse::token::intern_and_get_ident;
 
+#[cfg(not(target_os="android"))]
 #[plugin_registrar]
 pub fn registrar(reg: &mut rustc::plugin::Registry) {
     reg.register_syntax_extension(token::intern("link_glfw"),
                                   base::ItemModifier(expand));
 }
 
+#[cfg(not(target_os="android"))]
 fn lit_str(s: token::InternedString) -> ast::Lit_ {
     ast::LitStr(s, ast::CookedStr)
 }
 
+#[cfg(not(target_os="android"))]
 enum LinkKind {
     Unknown,
     Framework,
 }
 
+#[cfg(not(target_os="android"))]
 fn attr_link(context: &mut base::ExtCtxt, span: codemap::Span,
              name: token::InternedString, kind: LinkKind) -> ast::Attribute {
     let mut meta_items = vec![
@@ -62,6 +77,7 @@ fn attr_link(context: &mut base::ExtCtxt, span: codemap::Span,
     context.attribute(span, meta_list)
 }
 
+#[cfg(not(target_os="android"))]
 pub fn expand(context: &mut base::ExtCtxt, span: codemap::Span,
               _meta_item: Gc<ast::MetaItem>, item: Gc<ast::Item>
               ) -> Gc<ast::Item> {

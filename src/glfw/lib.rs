@@ -72,34 +72,54 @@
 
 // TODO: Document differences between GLFW and glfw-rs
 
+#[cfg(not(target_os="android"))]
 extern crate semver;
+#[cfg(not(target_os="android"))]
 extern crate sync;
+#[cfg(not(target_os="android"))]
 extern crate libc;
+#[cfg(not(target_os="android"))]
 #[phase(plugin, link)]
 extern crate log;
 
+#[cfg(not(target_os="android"))]
 use libc::{c_double, c_float, c_int};
+#[cfg(not(target_os="android"))]
 use libc::{c_uint, c_ushort, c_void};
+#[cfg(not(target_os="android"))]
 use std::mem;
+#[cfg(not(target_os="android"))]
 use std::comm::{channel, Receiver, Sender};
+#[cfg(not(target_os="android"))]
 use std::fmt;
+#[cfg(not(target_os="android"))]
 use std::kinds::marker;
+#[cfg(not(target_os="android"))]
 use std::ptr;
+#[cfg(not(target_os="android"))]
 use std::string;
+#[cfg(not(target_os="android"))]
 use std::vec;
+#[cfg(not(target_os="android"))]
 use semver::Version;
 
 /// Alias to `MouseButton1`, supplied for improved clarity.
+#[cfg(not(target_os="android"))]
 pub use MouseButtonLeft = self::MouseButton1;
 /// Alias to `MouseButton2`, supplied for improved clarity.
+#[cfg(not(target_os="android"))]
 pub use MouseButtonRight = self::MouseButton2;
 /// Alias to `MouseButton3`, supplied for improved clarity.
+#[cfg(not(target_os="android"))]
 pub use MouseButtonMiddle = self::MouseButton3;
 
+#[cfg(not(target_os="android"))]
 pub mod ffi;
+#[cfg(not(target_os="android"))]
 mod callbacks;
 
 /// Input actions.
+#[cfg(not(target_os="android"))]
 #[repr(i32)]
 #[deriving(Clone, Eq, Hash, PartialEq, Show)]
 pub enum Action {
@@ -109,6 +129,7 @@ pub enum Action {
 }
 
 /// Input keys.
+#[cfg(not(target_os="android"))]
 #[repr(i32)]
 #[deriving(Clone, Eq, Hash, PartialEq, Show)]
 pub enum Key {
@@ -237,6 +258,7 @@ pub enum Key {
 
 /// Mouse buttons. The `MouseButtonLeft`, `MouseButtonRight`, and
 /// `MouseButtonMiddle` aliases are supplied for convenience.
+#[cfg(not(target_os="android"))]
 #[repr(i32)]
 #[deriving(Clone, Eq, Hash, PartialEq, Show)]
 pub enum MouseButton {
@@ -261,8 +283,10 @@ pub enum MouseButton {
 /// assert_eq(format!("{}", glfw::MouseButtonLeft), ~"MouseButton1");
 /// assert_eq(format!("{}", glfw::ShowAliases(glfw::MouseButtonLeft)), ~"MouseButtonLeft");
 /// ~~~
+#[cfg(not(target_os="android"))]
 pub struct ShowAliases<T>(pub T);
 
+#[cfg(not(target_os="android"))]
 impl fmt::Show for ShowAliases<MouseButton> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let ShowAliases(button) = *self;
@@ -275,12 +299,14 @@ impl fmt::Show for ShowAliases<MouseButton> {
     }
 }
 
+#[cfg(not(target_os="android"))]
 pub struct Callback<Fn, UserData> {
     pub f: Fn,
     pub data: UserData,
 }
 
 /// Tokens corresponding to various error types.
+#[cfg(not(target_os="android"))]
 #[repr(i32)]
 #[deriving(Clone, Eq, Hash, PartialEq, Show)]
 pub enum Error {
@@ -297,28 +323,34 @@ pub enum Error {
 
 /// An error callback. This can be supplied with some user data to be passed to
 /// the callback function when it is triggered.
+#[cfg(not(target_os="android"))]
 pub type ErrorCallback<UserData> = Callback<fn(Error, String, &UserData), UserData>;
 
 /// The function to be used with the `FAIL_ON_ERRORS` callback.
+#[cfg(not(target_os="android"))]
 pub fn fail_on_errors(_: Error, description: String, _: &()) {
     fail!("GLFW Error: {}", description);
 }
 
 /// A callback that triggers a task failure when an error is encountered.
+#[cfg(not(target_os="android"))]
 pub static FAIL_ON_ERRORS: Option<ErrorCallback<()>> =
     Some(Callback { f: fail_on_errors, data: () });
 
 /// The function to be used with the `LOG_ERRORS` callback.
+#[cfg(not(target_os="android"))]
 pub fn log_errors(_: Error, description: String, _: &()) {
     error!("GLFW Error: {}", description);
 }
 
 /// A callback that logs each error as it is encountered without triggering a
 /// task failure.
+#[cfg(not(target_os="android"))]
 pub static LOG_ERRORS: Option<ErrorCallback<()>> =
     Some(Callback { f: log_errors, data: () });
 
 /// Cursor modes.
+#[cfg(not(target_os="android"))]
 #[repr(i32)]
 #[deriving(Clone, Eq, Hash, PartialEq, Show)]
 pub enum CursorMode {
@@ -328,6 +360,7 @@ pub enum CursorMode {
 }
 
 /// Describes a single video mode.
+#[cfg(not(target_os="android"))]
 pub struct VidMode {
     pub width:        u32,
     pub height:       u32,
@@ -338,6 +371,7 @@ pub struct VidMode {
 }
 
 /// Describes the gamma ramp of a monitor.
+#[cfg(not(target_os="android"))]
 pub struct GammaRamp {
     pub red:    Vec<c_ushort>,
     pub green:  Vec<c_ushort>,
@@ -345,6 +379,7 @@ pub struct GammaRamp {
 }
 
 /// An OpenGL process address.
+#[cfg(not(target_os="android"))]
 pub type GLProc = ffi::GLFWglproc;
 
 /// A token from which to call various GLFW functions. It can be obtained by
@@ -353,6 +388,7 @@ pub type GLProc = ffi::GLFWglproc;
 /// performing some operations harder, this is to ensure thread safety is enforced
 /// statically. The context can be safely cloned or implicitly copied if need be
 /// for convenience.
+#[cfg(not(target_os="android"))]
 #[deriving(Clone)]
 pub struct Glfw {
     no_send: marker::NoSend,
@@ -360,6 +396,7 @@ pub struct Glfw {
 }
 
 /// An error that might be returned when `glfw::init` is called.
+#[cfg(not(target_os="android"))]
 #[deriving(Eq, PartialEq, Show)]
 pub enum InitError {
     /// The library was already initialized.
@@ -403,6 +440,7 @@ pub enum InitError {
 /// - Subsequent calls to `init` will return `Err(AlreadyInitialized)`.
 /// - If an initialization error occured within the GLFW library
 ///   `Err(InternalInitError)` will be returned.
+#[cfg(not(target_os="android"))]
 pub fn init<UserData: 'static>(mut callback: Option<ErrorCallback<UserData>>) -> Result<Glfw, InitError> {
     use sync::one::{Once, ONCE_INIT};
     static mut INIT: Once = ONCE_INIT;
@@ -432,6 +470,7 @@ pub fn init<UserData: 'static>(mut callback: Option<ErrorCallback<UserData>>) ->
     })
 }
 
+#[cfg(not(target_os="android"))]
 impl Glfw {
     /// Sets the error callback, overwriting the previous one stored.
     ///
@@ -725,6 +764,7 @@ impl Glfw {
 }
 
 /// Wrapper for `glfwGetVersion`.
+#[cfg(not(target_os="android"))]
 pub fn get_version() -> Version {
     unsafe {
         let mut major = 0;
@@ -742,15 +782,18 @@ pub fn get_version() -> Version {
 }
 
 /// Wrapper for `glfwGetVersionString`.
+#[cfg(not(target_os="android"))]
 pub fn get_version_string() -> String {
     unsafe { string::raw::from_buf(ffi::glfwGetVersionString() as *const u8) }
 }
 
 /// An monitor callback. This can be supplied with some user data to be passed
 /// to the callback function when it is triggered.
+#[cfg(not(target_os="android"))]
 pub type MonitorCallback<UserData> = Callback<fn(Monitor, MonitorEvent, &UserData), UserData>;
 
 /// A struct that wraps a `*GLFWmonitor` handle.
+#[cfg(not(target_os="android"))]
 pub struct Monitor {
     ptr: *mut ffi::GLFWmonitor,
     no_copy: marker::NoCopy,
@@ -758,6 +801,7 @@ pub struct Monitor {
     no_share: marker::NoShare,
 }
 
+#[cfg(not(target_os="android"))]
 impl Monitor {
     /// Wrapper for `glfwGetMonitorPos`.
     pub fn get_pos(&self) -> (i32, i32) {
@@ -834,12 +878,14 @@ impl Monitor {
 }
 
 /// Monitor events.
+#[cfg(not(target_os="android"))]
 #[repr(i32)]
 pub enum MonitorEvent {
     Connected                   = ffi::CONNECTED,
     Disconnected                = ffi::DISCONNECTED,
 }
 
+#[cfg(not(target_os="android"))]
 impl VidMode {
     fn from_glfw_vid_mode(mode: &ffi::GLFWvidmode) -> VidMode {
         VidMode {
@@ -853,6 +899,7 @@ impl VidMode {
     }
 }
 
+#[cfg(not(target_os="android"))]
 impl fmt::Show for VidMode {
     /// Returns a string representation of the video mode.
     ///
@@ -873,6 +920,7 @@ impl fmt::Show for VidMode {
 }
 
 /// Window hints that can be set using the `window_hint` function.
+#[cfg(not(target_os="android"))]
 pub enum WindowHint {
     /// Specifies the desired bit depth of the red component of the default framebuffer.
     RedBits(u32),
@@ -969,6 +1017,7 @@ pub enum WindowHint {
 }
 
 /// Client API tokens.
+#[cfg(not(target_os="android"))]
 #[repr(i32)]
 #[deriving(Clone, Eq, PartialEq, Show)]
 pub enum ClientApi {
@@ -977,6 +1026,7 @@ pub enum ClientApi {
 }
 
 /// Context robustness tokens.
+#[cfg(not(target_os="android"))]
 #[repr(i32)]
 #[deriving(Clone, Eq, PartialEq, Show)]
 pub enum ContextRobustness {
@@ -986,6 +1036,7 @@ pub enum ContextRobustness {
 }
 
 /// OpenGL profile tokens.
+#[cfg(not(target_os="android"))]
 #[repr(i32)]
 #[deriving(Clone, Eq, PartialEq, Show)]
 pub enum OpenGlProfile {
@@ -995,6 +1046,7 @@ pub enum OpenGlProfile {
 }
 
 /// Describes the mode of a window
+#[cfg(not(target_os="android"))]
 pub enum WindowMode<'a> {
     /// Full screen mode. Contains the monitor on which the window is displayed.
     FullScreen(&'a Monitor),
@@ -1004,6 +1056,7 @@ pub enum WindowMode<'a> {
 }
 
 /// Private conversion methods for `glfw::WindowMode`
+#[cfg(not(target_os="android"))]
 impl<'a> WindowMode<'a> {
     /// Returns a pointer to a monitor if the window is fullscreen, otherwise
     /// it returns a null pointer (if it is in windowed mode).
@@ -1015,6 +1068,7 @@ impl<'a> WindowMode<'a> {
     }
 }
 
+#[cfg(not(target_os="android"))]
 bitflags! {
     #[doc = "Key modifiers"]
     flags Modifiers: c_int {
@@ -1025,6 +1079,7 @@ bitflags! {
     }
 }
 
+#[cfg(not(target_os="android"))]
 impl fmt::Show for Modifiers {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for (i, x) in [Shift, Control, Alt, Super].iter().filter(|x| self.contains(**x)).enumerate() {
@@ -1039,9 +1094,11 @@ impl fmt::Show for Modifiers {
     }
 }
 
+#[cfg(not(target_os="android"))]
 pub type Scancode = c_int;
 
 /// Window event messages.
+#[cfg(not(target_os="android"))]
 #[deriving(Show, Clone)]
 pub enum WindowEvent {
     PosEvent(i32, i32),
@@ -1070,14 +1127,17 @@ pub enum WindowEvent {
 ///     // handle event
 /// }
 /// ~~~
+#[cfg(not(target_os="android"))]
 pub fn flush_messages<'a, Message: Send>(receiver: &'a Receiver<Message>) -> FlushedMessages<'a, Message> {
     FlushedMessages(receiver)
 }
 
 /// An iterator that yeilds until no more messages are contained in the
 /// `Receiver`'s queue.
+#[cfg(not(target_os="android"))]
 pub struct FlushedMessages<'a, Message>(&'a Receiver<Message>);
 
+#[cfg(not(target_os="android"))]
 impl<'a, Message: Send> Iterator<Message> for FlushedMessages<'a, Message> {
     fn next(&mut self) -> Option<Message> {
         let FlushedMessages(receiver) = *self;
@@ -1089,6 +1149,7 @@ impl<'a, Message: Send> Iterator<Message> for FlushedMessages<'a, Message> {
 }
 
 /// A struct that wraps a `*GLFWwindow` handle.
+#[cfg(not(target_os="android"))]
 pub struct Window {
     pub ptr: *mut ffi::GLFWwindow,
     pub glfw: Glfw,
@@ -1101,6 +1162,7 @@ pub struct Window {
     drop_receiver: Receiver<()>,
 }
 
+#[cfg(not(target_os="android"))]
 macro_rules! set_window_callback {
     ($window:ident, $should_poll:expr, $ll_fn:ident, $callback:ident) => ({
         if $should_poll {
@@ -1111,6 +1173,7 @@ macro_rules! set_window_callback {
     })
 }
 
+#[cfg(not(target_os="android"))]
 impl Window {
     /// Wrapper for `glfwCreateWindow`.
     pub fn create_shared(&self, width: u32, height: u32, title: &str, mode: WindowMode) -> Option<(Window, Receiver<(f64, WindowEvent)>)> {
@@ -1493,6 +1556,7 @@ impl Window {
     }
 }
 
+#[cfg(not(target_os="android"))]
 #[unsafe_destructor]
 impl Drop for Window {
     /// Closes the window and performs the necessary cleanups. This will block
@@ -1523,6 +1587,7 @@ impl Drop for Window {
 }
 
 /// A rendering context that can be shared between tasks.
+#[cfg(not(target_os="android"))]
 pub struct RenderContext {
     ptr: *mut ffi::GLFWwindow,
     /// As long as this sender is alive, it is not safe to drop the parent
@@ -1532,6 +1597,7 @@ pub struct RenderContext {
 }
 
 /// Methods common to renderable contexts
+#[cfg(not(target_os="android"))]
 pub trait Context {
     /// Returns the pointer to the underlying `GLFWwindow`.
     fn window_ptr(&self) -> *mut ffi::GLFWwindow;
@@ -1558,15 +1624,18 @@ pub trait Context {
     }
 }
 
+#[cfg(not(target_os="android"))]
 impl Context for Window {
     fn window_ptr(&self) -> *mut ffi::GLFWwindow { self.ptr }
 }
 
+#[cfg(not(target_os="android"))]
 impl Context for RenderContext {
     fn window_ptr(&self) -> *mut ffi::GLFWwindow { self.ptr }
 }
 
 /// Wrapper for `glfwMakeContextCurrent`.
+#[cfg(not(target_os="android"))]
 pub fn make_context_current(context: Option<&Context>) {
     match context {
         Some(ctx) => unsafe { ffi::glfwMakeContextCurrent(ctx.window_ptr()) },
@@ -1575,6 +1644,7 @@ pub fn make_context_current(context: Option<&Context>) {
 }
 
 /// Joystick identifier tokens.
+#[cfg(not(target_os="android"))]
 #[repr(i32)]
 #[deriving(Clone, Eq, PartialEq, Hash, Show)]
 pub enum JoystickId {
@@ -1597,11 +1667,13 @@ pub enum JoystickId {
 }
 
 /// A joystick handle.
+#[cfg(not(target_os="android"))]
 pub struct Joystick {
     pub id: JoystickId,
     pub glfw: Glfw,
 }
 
+#[cfg(not(target_os="android"))]
 impl Joystick {
     /// Wrapper for `glfwJoystickPresent`.
     pub fn is_present(&self) -> bool {
