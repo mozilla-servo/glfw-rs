@@ -28,14 +28,14 @@
 //!
 //! # Example
 //!
-//! ~~~rust
+//! ~~~no_run
 //! extern crate native;
 //! extern crate glfw;
 //!
 //! use glfw::Context;
 //!
 //! #[start]
-//! fn start(argc: int, argv: **u8) -> int {
+//! fn start(argc: int, argv: *const *const u8) -> int {
 //!     // Run GLFW on the main thread
 //!     native::start(argc, argv, main)
 //! }
@@ -44,7 +44,7 @@
 //!    let glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
 //!
 //!     // Create a windowed mode window and its OpenGL context
-//!     let window = glfw.create_window(300, 300, "Hello this is window", glfw::Windowed)
+//!     let (window, events) = glfw.create_window(300, 300, "Hello this is window", glfw::Windowed)
 //!         .expect("Failed to create GLFW window.");
 //!
 //!     // Make the window's context current
@@ -121,7 +121,7 @@ mod callbacks;
 /// Input actions.
 #[cfg(not(target_os="android"))]
 #[repr(i32)]
-#[deriving(Clone, Eq, Hash, PartialEq, Show)]
+#[deriving(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show)]
 pub enum Action {
     Release                      = ffi::RELEASE,
     Press                        = ffi::PRESS,
@@ -131,7 +131,7 @@ pub enum Action {
 /// Input keys.
 #[cfg(not(target_os="android"))]
 #[repr(i32)]
-#[deriving(Clone, Eq, Hash, PartialEq, Show)]
+#[deriving(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show)]
 pub enum Key {
     KeySpace                    = ffi::KEY_SPACE,
     KeyApostrophe               = ffi::KEY_APOSTROPHE,
@@ -260,7 +260,7 @@ pub enum Key {
 /// `MouseButtonMiddle` aliases are supplied for convenience.
 #[cfg(not(target_os="android"))]
 #[repr(i32)]
-#[deriving(Clone, Eq, Hash, PartialEq, Show)]
+#[deriving(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show)]
 pub enum MouseButton {
     /// The left mouse button. A `MouseButtonLeft` alias is provided to improve clarity.
     MouseButton1                = ffi::MOUSE_BUTTON_1,
@@ -279,9 +279,9 @@ pub enum MouseButton {
 ///
 /// # Example
 ///
-/// ~~~rust
-/// assert_eq(format!("{}", glfw::MouseButtonLeft), ~"MouseButton1");
-/// assert_eq(format!("{}", glfw::ShowAliases(glfw::MouseButtonLeft)), ~"MouseButtonLeft");
+/// ~~~ignore
+/// assert_eq(format!("{}", glfw::MouseButtonLeft), "MouseButton1");
+/// assert_eq(format!("{}", glfw::ShowAliases(glfw::MouseButtonLeft)), "MouseButtonLeft");
 /// ~~~
 #[cfg(not(target_os="android"))]
 pub struct ShowAliases<T>(pub T);
@@ -308,7 +308,7 @@ pub struct Callback<Fn, UserData> {
 /// Tokens corresponding to various error types.
 #[cfg(not(target_os="android"))]
 #[repr(i32)]
-#[deriving(Clone, Eq, Hash, PartialEq, Show)]
+#[deriving(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show)]
 pub enum Error {
     NotInitialized              = ffi::NOT_INITIALIZED,
     NoCurrentContext            = ffi::NO_CURRENT_CONTEXT,
@@ -352,7 +352,7 @@ pub static LOG_ERRORS: Option<ErrorCallback<()>> =
 /// Cursor modes.
 #[cfg(not(target_os="android"))]
 #[repr(i32)]
-#[deriving(Clone, Eq, Hash, PartialEq, Show)]
+#[deriving(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show)]
 pub enum CursorMode {
     CursorNormal                = ffi::CURSOR_NORMAL,
     CursorHidden                = ffi::CURSOR_HIDDEN,
@@ -392,12 +392,12 @@ pub type GLProc = ffi::GLFWglproc;
 #[deriving(Clone)]
 pub struct Glfw {
     no_send: marker::NoSend,
-    no_share: marker::NoShare,
+    no_share: marker::NoSync,
 }
 
 /// An error that might be returned when `glfw::init` is called.
 #[cfg(not(target_os="android"))]
-#[deriving(Eq, PartialEq, Show)]
+#[deriving(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show)]
 pub enum InitError {
     /// The library was already initialized.
     AlreadyInitialized,
@@ -418,12 +418,12 @@ pub enum InitError {
 ///
 /// # Example
 ///
-/// ~~~rust
+/// ~~~no_run
 /// extern crate native;
 /// extern crate glfw;
 ///
 /// #[start]
-/// fn start(argc: int, argv: **u8) -> int {
+/// fn start(argc: int, argv: *const *const u8) -> int {
 ///     // Run GLFW on the main thread
 ///     native::start(argc, argv, main)
 /// }
@@ -476,11 +476,11 @@ impl Glfw {
     ///
     /// # Example
     ///
-    /// ~~~rust
+    /// ~~~ignore
     /// use std::cell::Cell;
     ///
     /// fn error_callback(_: glfw::Error, description: String, error_count: &Cell<uint>) {
-    ///     error!("GLFW error {}: {}", error_count.get(), description);
+    ///     println!("GLFW error {}: {}", error_count.get(), description);
     ///     error_count.set(error_count.get() + 1);
     /// }
     ///
@@ -499,7 +499,7 @@ impl Glfw {
     /// The `FAIL_ON_ERRORS` and `LOG_ERRORS` callbacks are provided for
     /// convenience. For example:
     ///
-    /// ~~~rust
+    /// ~~~ignore
     /// // triggers a task failure when a GLFW error is encountered.
     /// glfw.set_error_callback(glfw::FAIL_ON_ERRORS);
     /// ~~~
@@ -524,7 +524,7 @@ impl Glfw {
     ///
     /// # Example
     ///
-    /// ~~~rust
+    /// ~~~ignore
     /// let (window, events) = glfw.with_primary_monitor(|m| {
     ///     glfw.create_window(300, 300, "Hello this is window",
     ///         m.map_or(glfw::Windowed, |m| glfw::FullScreen(m)))
@@ -547,7 +547,7 @@ impl Glfw {
     ///
     /// # Example
     ///
-    /// ~~~rust
+    /// ~~~ignore
     /// glfw.with_connected_monitors(|monitors| {
     ///     for monitor in monitors.iter() {
     ///         println!("{}: {}", monitor.get_name(), monitor.get_video_mode());
@@ -593,7 +593,7 @@ impl Glfw {
     /// To create an OS X compatible context, the hints should be specified as
     /// follows:
     ///
-    /// ~~~rust
+    /// ~~~ignore
     /// glfw.window_hint(glfw::ContextVersion(3, 2));
     /// glfw.window_hint(glfw::OpenglForwardCompat(true));
     /// glfw.window_hint(glfw::OpenglProfile(glfw::OpenGlCoreProfile));
@@ -745,16 +745,20 @@ impl Glfw {
         }
     }
 
-    /// Returns the address of the specified client API or extension function
-    /// if it is supported by the current context.
+    /// Returns the address of the specified client API or extension function if
+    /// it is supported by the current context, NULL otherwise.
     ///
     /// Wrapper for `glfwGetProcAddress`.
+    pub fn get_proc_address_raw(&self, procname: &str) -> GLProc {
+        debug_assert!(unsafe { ffi::glfwGetCurrentContext() } != std::ptr::mut_null());
+        procname.with_c_str(|procname| {
+            unsafe { ffi::glfwGetProcAddress(procname) }
+        })
+    }
+
+    #[deprecated="Use Window::get_proc_address or Glfw::get_proc_address_raw"]
     pub fn get_proc_address(&self, procname: &str) -> GLProc {
-        unsafe {
-            procname.with_c_str(|procname| {
-                ffi::glfwGetProcAddress(procname)
-            })
-        }
+        self.get_proc_address_raw(procname)
     }
 
     /// Constructs a `Joystick` handle corresponding to the supplied `JoystickId`.
@@ -801,6 +805,12 @@ pub struct Monitor {
     no_share: marker::NoShare,
 }
 
+impl std::fmt::Show for Monitor {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "Monitor({:p})", self.ptr)
+    }
+}
+
 #[cfg(not(target_os="android"))]
 impl Monitor {
     /// Wrapper for `glfwGetMonitorPos`.
@@ -840,7 +850,7 @@ impl Monitor {
     /// Wrapper for `glfwGetVideoMode`.
     pub fn get_video_mode(&self) -> Option<VidMode> {
         unsafe {
-            ffi::glfwGetVideoMode(self.ptr).to_option().map(|v| VidMode::from_glfw_vid_mode(v))
+            ffi::glfwGetVideoMode(self.ptr).as_ref().map(|v| VidMode::from_glfw_vid_mode(v))
         }
     }
 
@@ -880,6 +890,7 @@ impl Monitor {
 /// Monitor events.
 #[cfg(not(target_os="android"))]
 #[repr(i32)]
+#[deriving(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show)]
 pub enum MonitorEvent {
     Connected                   = ffi::CONNECTED,
     Disconnected                = ffi::DISCONNECTED,
@@ -907,7 +918,7 @@ impl fmt::Show for VidMode {
     ///
     /// A string in the form:
     ///
-    /// ~~~
+    /// ~~~ignore
     /// ~"[width] x [height], [total_bits] ([red_bits] [green_bits] [blue_bits]) [refresh_rate] Hz"
     /// ~~~
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -921,6 +932,7 @@ impl fmt::Show for VidMode {
 
 /// Window hints that can be set using the `window_hint` function.
 #[cfg(not(target_os="android"))]
+#[deriving(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show)]
 pub enum WindowHint {
     /// Specifies the desired bit depth of the red component of the default framebuffer.
     RedBits(u32),
@@ -1019,7 +1031,7 @@ pub enum WindowHint {
 /// Client API tokens.
 #[cfg(not(target_os="android"))]
 #[repr(i32)]
-#[deriving(Clone, Eq, PartialEq, Show)]
+#[deriving(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show)]
 pub enum ClientApi {
     OpenGlApi                   = ffi::OPENGL_API,
     OpenGlEsApi                 = ffi::OPENGL_ES_API,
@@ -1028,7 +1040,7 @@ pub enum ClientApi {
 /// Context robustness tokens.
 #[cfg(not(target_os="android"))]
 #[repr(i32)]
-#[deriving(Clone, Eq, PartialEq, Show)]
+#[deriving(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show)]
 pub enum ContextRobustness {
     NoRobustness                = ffi::NO_ROBUSTNESS,
     NoResetNotification         = ffi::NO_RESET_NOTIFICATION,
@@ -1038,7 +1050,7 @@ pub enum ContextRobustness {
 /// OpenGL profile tokens.
 #[cfg(not(target_os="android"))]
 #[repr(i32)]
-#[deriving(Clone, Eq, PartialEq, Show)]
+#[deriving(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show)]
 pub enum OpenGlProfile {
     OpenGlAnyProfile            = ffi::OPENGL_ANY_PROFILE,
     OpenGlCoreProfile           = ffi::OPENGL_CORE_PROFILE,
@@ -1047,6 +1059,7 @@ pub enum OpenGlProfile {
 
 /// Describes the mode of a window
 #[cfg(not(target_os="android"))]
+#[deriving(Show)]
 pub enum WindowMode<'a> {
     /// Full screen mode. Contains the monitor on which the window is displayed.
     FullScreen(&'a Monitor),
@@ -1099,7 +1112,7 @@ pub type Scancode = c_int;
 
 /// Window event messages.
 #[cfg(not(target_os="android"))]
-#[deriving(Show, Clone)]
+#[deriving(Clone, PartialEq, PartialOrd, Show)]
 pub enum WindowEvent {
     PosEvent(i32, i32),
     SizeEvent(i32, i32),
@@ -1122,7 +1135,7 @@ pub enum WindowEvent {
 ///
 /// # Example
 ///
-/// ~~~rust
+/// ~~~ignore
 /// for event in glfw::flush_messages(&events) {
 ///     // handle event
 /// }
@@ -1135,7 +1148,7 @@ pub fn flush_messages<'a, Message: Send>(receiver: &'a Receiver<Message>) -> Flu
 /// An iterator that yeilds until no more messages are contained in the
 /// `Receiver`'s queue.
 #[cfg(not(target_os="android"))]
-pub struct FlushedMessages<'a, Message>(&'a Receiver<Message>);
+pub struct FlushedMessages<'a, Message: 'a>(&'a Receiver<Message>);
 
 #[cfg(not(target_os="android"))]
 impl<'a, Message: Send> Iterator<Message> for FlushedMessages<'a, Message> {
@@ -1175,6 +1188,19 @@ macro_rules! set_window_callback {
 
 #[cfg(not(target_os="android"))]
 impl Window {
+    /// Returns the address of the specified client API or extension function if
+    /// it is supported by the context associated with this Window. If this Window is not the
+    /// current context, it will make it the current context.
+    ///
+    /// Wrapper for `glfwGetProcAddress`.
+    pub fn get_proc_address(&self, procname: &str) -> GLProc {
+        if self.ptr != unsafe { ffi::glfwGetCurrentContext() } {
+            self.make_current();
+        }
+
+        self.glfw.get_proc_address_raw(procname)
+    }
+
     /// Wrapper for `glfwCreateWindow`.
     pub fn create_shared(&self, width: u32, height: u32, title: &str, mode: WindowMode) -> Option<(Window, Receiver<(f64, WindowEvent)>)> {
         self.glfw.create_window_intern(width, height, title, mode, Some(self))
@@ -1279,10 +1305,10 @@ impl Window {
     ///
     /// # Example
     ///
-    /// ~~~rust
+    /// ~~~ignore
     /// window.with_window_mode(|mode| {
     ///     match mode {
-    ///         glfw::Windowed() => println!("Windowed"),
+    ///         glfw::Windowed => println!("Windowed"),
     ///         glfw::FullScreen(m) => println!("FullScreen({})", m.get_name()),
     ///     }
     /// });
@@ -1646,7 +1672,7 @@ pub fn make_context_current(context: Option<&Context>) {
 /// Joystick identifier tokens.
 #[cfg(not(target_os="android"))]
 #[repr(i32)]
-#[deriving(Clone, Eq, PartialEq, Hash, Show)]
+#[deriving(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show)]
 pub enum JoystickId {
     Joystick1       = ffi::JOYSTICK_1,
     Joystick2       = ffi::JOYSTICK_2,
