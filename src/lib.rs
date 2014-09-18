@@ -105,13 +105,13 @@ use semver::Version;
 
 /// Alias to `MouseButton1`, supplied for improved clarity.
 #[cfg(not(target_os="android"))]
-pub use MouseButtonLeft = self::MouseButton1;
+pub use self::MouseButton1 as MouseButtonLeft;
 /// Alias to `MouseButton2`, supplied for improved clarity.
 #[cfg(not(target_os="android"))]
-pub use MouseButtonRight = self::MouseButton2;
+pub use self::MouseButton2 as MouseButtonRight;
 /// Alias to `MouseButton3`, supplied for improved clarity.
 #[cfg(not(target_os="android"))]
-pub use MouseButtonMiddle = self::MouseButton3;
+pub use self::MouseButton3 as MouseButtonMiddle;
 
 #[cfg(not(target_os="android"))]
 pub mod ffi;
@@ -466,7 +466,7 @@ pub fn init<UserData: 'static>(mut callback: Option<ErrorCallback<UserData>>) ->
     }
     result.map(|_| Glfw {
         no_send: marker::NoSend,
-        no_share: marker::NoShare,
+        no_share: marker::NoSync,
     })
 }
 
@@ -537,7 +537,7 @@ impl Glfw {
                 ptr: ptr,
                 no_copy: marker::NoCopy,
                 no_send: marker::NoSend,
-                no_share: marker::NoShare,
+                no_share: marker::NoSync,
             })),
         }
     }
@@ -563,7 +563,7 @@ impl Glfw {
                     ptr: ptr,
                     no_copy: marker::NoCopy,
                     no_send: marker::NoSend,
-                    no_share: marker::NoShare,
+                    no_share: marker::NoSync,
                 }
             }).collect::<Vec<Monitor>>().as_slice())
         }
@@ -802,7 +802,7 @@ pub struct Monitor {
     ptr: *mut ffi::GLFWmonitor,
     no_copy: marker::NoCopy,
     no_send: marker::NoSend,
-    no_share: marker::NoShare,
+    no_share: marker::NoSync,
 }
 
 impl std::fmt::Show for Monitor {
@@ -1322,7 +1322,7 @@ impl Window {
                 ptr: ptr,
                 no_copy: marker::NoCopy,
                 no_send: marker::NoSend,
-                no_share: marker::NoShare,
+                no_share: marker::NoSync,
             }))
         }
     }
