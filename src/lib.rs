@@ -969,7 +969,7 @@ pub enum WindowHint {
     /// This hint is ignored for windowed mode windows.
     RefreshRate(u32),
     /// Specifies which `ClientApi` to create the context for.
-    ClientApi(ClientApi),
+    ClientApi(ClientApiHint),
     /// Specifies the major client API version that the created context must be
     /// compatible with.
     ///
@@ -993,7 +993,7 @@ pub enum WindowHint {
     /// highest available context.
     ContextVersion(u32, u32),
     /// Specifies the `ContextRobustness` strategy to be used.
-    ContextRobustness(ContextRobustness),
+    ContextRobustness(ContextRobustnessHint),
     /// Specifies whether the OpenGL context should be forward-compatible, i.e.
     /// one where all functionality deprecated in the requested version of
     /// OpenGL is removed. This may only be used if the requested OpenGL version
@@ -1032,7 +1032,7 @@ pub enum WindowHint {
 #[cfg(not(target_os="android"))]
 #[repr(i32)]
 #[deriving(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show)]
-pub enum ClientApi {
+pub enum ClientApiHint {
     OpenGlApi                   = ffi::OPENGL_API,
     OpenGlEsApi                 = ffi::OPENGL_ES_API,
 }
@@ -1041,7 +1041,7 @@ pub enum ClientApi {
 #[cfg(not(target_os="android"))]
 #[repr(i32)]
 #[deriving(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show)]
-pub enum ContextRobustness {
+pub enum ContextRobustnessHint {
     NoRobustness                = ffi::NO_ROBUSTNESS,
     NoResetNotification         = ffi::NO_RESET_NOTIFICATION,
     LoseContextOnReset          = ffi::LOSE_CONTEXT_ON_RESET,
