@@ -805,6 +805,7 @@ pub struct Monitor {
     no_share: marker::NoSync,
 }
 
+#[cfg(not(target_os="android"))]
 impl std::fmt::Show for Monitor {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "Monitor({:p})", self.ptr)
