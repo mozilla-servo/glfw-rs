@@ -709,6 +709,15 @@ impl Glfw {
         unsafe { ffi::glfwWaitEvents(); }
     }
 
+    /// Posts an empty event from the current thread to the event queue,
+    /// causing `wait_events()` to return.
+    ///
+    /// Because of the multithreaded nature of this function, it is static and
+    /// does not take a `Glfw` instance.
+    pub fn post_empty_event() {
+        unsafe { ffi::glfwPostEmptyEvent() }
+    }
+
     /// Returns the current value of the GLFW timer. Unless the timer has been
     /// set using `glfw::set_time`, the timer measures time elapsed since GLFW
     /// was initialized.
