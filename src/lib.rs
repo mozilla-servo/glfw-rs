@@ -131,7 +131,7 @@ pub enum Action {
 /// Input keys.
 #[cfg(not(target_os="android"))]
 #[repr(i32)]
-#[deriving(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show)]
+#[deriving(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show, FromPrimitive)]
 pub enum Key {
     KeySpace                    = ffi::KEY_SPACE,
     KeyApostrophe               = ffi::KEY_APOSTROPHE,
@@ -260,7 +260,7 @@ pub enum Key {
 /// `MouseButtonMiddle` aliases are supplied for convenience.
 #[cfg(not(target_os="android"))]
 #[repr(i32)]
-#[deriving(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show)]
+#[deriving(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show, FromPrimitive)]
 pub enum MouseButton {
     /// The left mouse button. A `MouseButtonLeft` alias is provided to improve clarity.
     MouseButton1                = ffi::MOUSE_BUTTON_1,
@@ -329,7 +329,7 @@ pub type ErrorCallback<UserData> = Callback<fn(Error, String, &UserData), UserDa
 /// The function to be used with the `FAIL_ON_ERRORS` callback.
 #[cfg(not(target_os="android"))]
 pub fn fail_on_errors(_: Error, description: String, _: &()) {
-    fail!("GLFW Error: {}", description);
+    panic!("GLFW Error: {}", description);
 }
 
 /// A callback that triggers a task failure when an error is encountered.
@@ -1020,7 +1020,7 @@ pub enum WindowHint {
     /// an OpenGL version below 3.2, `OpenGlAnyProfile` must be used.
     ///
     /// If another client API is requested, this hint is ignored.
-    OpenglProfile(OpenGlProfile),
+    OpenglProfile(OpenGlProfileHint),
     /// Specifies whether the window will be resizable by the user. Even if this
     /// is set to `false`, the window can still be resized using the
     /// `Window::set_size` function.
@@ -1061,7 +1061,7 @@ pub enum ContextRobustnessHint {
 #[cfg(not(target_os="android"))]
 #[repr(i32)]
 #[deriving(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show)]
-pub enum OpenGlProfile {
+pub enum OpenGlProfileHint {
     OpenGlAnyProfile            = ffi::OPENGL_ANY_PROFILE,
     OpenGlCoreProfile           = ffi::OPENGL_CORE_PROFILE,
     OpenGlCompatProfile         = ffi::OPENGL_COMPAT_PROFILE,
@@ -1095,10 +1095,10 @@ impl<'a> WindowMode<'a> {
 bitflags! {
     #[doc = "Key modifiers"]
     flags Modifiers: c_int {
-        static Shift       = ffi::MOD_SHIFT,
-        static Control     = ffi::MOD_CONTROL,
-        static Alt         = ffi::MOD_ALT,
-        static Super       = ffi::MOD_SUPER
+        const Shift       = ffi::MOD_SHIFT,
+        const Control     = ffi::MOD_CONTROL,
+        const Alt         = ffi::MOD_ALT,
+        const Super       = ffi::MOD_SUPER
     }
 }
 
@@ -1682,7 +1682,7 @@ pub fn make_context_current(context: Option<&Context>) {
 /// Joystick identifier tokens.
 #[cfg(not(target_os="android"))]
 #[repr(i32)]
-#[deriving(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show)]
+#[deriving(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show, FromPrimitive)]
 pub enum JoystickId {
     Joystick1       = ffi::JOYSTICK_1,
     Joystick2       = ffi::JOYSTICK_2,

@@ -13,12 +13,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#[cfg(feature = "glfw-sys")]
+#[link(name = "glfw3", kind = "static")]
+extern {}
+
+#[cfg(not(feature = "glfw-sys"))]
+// leaving off `kind = static` allows for the specification of a dynamic library if desired
+#[link(name = "glfw3")]
+extern {}
+
 #[cfg(target_os="windows")]
 #[link(name = "opengl32")]
 #[link(name = "gdi32")]
-extern {}
-
-#[link(name = "glfw3", kind = "static")]
 extern {}
 
 #[cfg(target_os="linux")]
