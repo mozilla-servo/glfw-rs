@@ -31,16 +31,9 @@
 //! # Example
 //!
 //! ~~~no_run
-//! extern crate native;
 //! extern crate glfw;
 //!
 //! use glfw::{Action, Context, Key};
-//!
-//! #[start]
-//! fn start(argc: int, argv: *const *const u8) -> int {
-//!     // Run GLFW on the main thread
-//!     native::start(argc, argv, main)
-//! }
 //!
 //! fn main() {
 //!    let glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
@@ -76,8 +69,6 @@
 
 #[cfg(not(target_os="android"))]
 extern crate semver;
-#[cfg(not(target_os="android"))]
-extern crate sync;
 #[cfg(not(target_os="android"))]
 extern crate libc;
 #[cfg(not(target_os="android"))]
@@ -421,14 +412,7 @@ pub enum InitError {
 /// # Example
 ///
 /// ~~~no_run
-/// extern crate native;
 /// extern crate glfw;
-///
-/// #[start]
-/// fn start(argc: int, argv: *const *const u8) -> int {
-///     // Run GLFW on the main thread
-///     native::start(argc, argv, main)
-/// }
 ///
 /// fn main() {
 ///    let glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
@@ -444,7 +428,7 @@ pub enum InitError {
 ///   `Err(InternalInitError)` will be returned.
 #[cfg(not(target_os="android"))]
 pub fn init<UserData: 'static>(mut callback: Option<ErrorCallback<UserData>>) -> Result<Glfw, InitError> {
-    use sync::one::{Once, ONCE_INIT};
+    use std::sync::{Once, ONCE_INIT};
     static mut INIT: Once = ONCE_INIT;
     let mut result = Err(InitError::AlreadyInitialized);
     unsafe {
