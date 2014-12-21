@@ -17,7 +17,6 @@
 #![crate_type = "rlib"]
 #![crate_type = "dylib"]
 #![crate_name = "glfw"]
-#![comment = "Bindings and wrapper functions for glfw3."]
 
 #![feature(globs)]
 #![feature(macro_rules)]
@@ -39,7 +38,7 @@
 //!    let glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
 //!
 //!     // Create a windowed mode window and its OpenGL context
-//!     let (window, events) = glfw.create_window(300, 300, "Hello this is window", glfw::Windowed)
+//!     let (window, events) = glfw.create_window(300, 300, "Hello this is window", glfw::WindowMode::Windowed)
 //!         .expect("Failed to create GLFW window.");
 //!
 //!     // Make the window's context current
@@ -55,7 +54,7 @@
 //!         for (_, event) in glfw::flush_messages(&events) {
 //!             println!("{}", event);
 //!             match event {
-//!                 glfw::KeyEvent(Key::Escape, _, Action::Press, _) => {
+//!                 glfw::WindowEvent::Key(Key::Escape, _, Action::Press, _) => {
 //!                     window.set_should_close(true)
 //!                 },
 //!                 _ => {},
@@ -114,7 +113,7 @@ mod callbacks;
 /// Input actions.
 #[cfg(not(target_os="android"))]
 #[repr(i32)]
-#[deriving(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show)]
+#[deriving(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show)]
 pub enum Action {
     Release                      = ffi::RELEASE,
     Press                        = ffi::PRESS,
@@ -124,7 +123,7 @@ pub enum Action {
 /// Input keys.
 #[cfg(not(target_os="android"))]
 #[repr(i32)]
-#[deriving(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show, FromPrimitive)]
+#[deriving(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show, FromPrimitive)]
 pub enum Key {
     Space                    = ffi::KEY_SPACE,
     Apostrophe               = ffi::KEY_APOSTROPHE,
@@ -253,7 +252,7 @@ pub enum Key {
 /// `MouseButtonMiddle` aliases are supplied for convenience.
 #[cfg(not(target_os="android"))]
 #[repr(i32)]
-#[deriving(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show, FromPrimitive)]
+#[deriving(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show, FromPrimitive)]
 pub enum MouseButton {
     /// The left mouse button. A `MouseButtonLeft` alias is provided to improve clarity.
     Button1                = ffi::MOUSE_BUTTON_1,
@@ -298,10 +297,12 @@ pub struct Callback<Fn, UserData> {
     pub data: UserData,
 }
 
+impl<Fn: Copy, UserData: Copy> Copy for Callback<Fn, UserData> {}
+
 /// Tokens corresponding to various error types.
 #[cfg(not(target_os="android"))]
 #[repr(i32)]
-#[deriving(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show)]
+#[deriving(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show)]
 pub enum Error {
     NotInitialized              = ffi::NOT_INITIALIZED,
     NoCurrentContext            = ffi::NO_CURRENT_CONTEXT,
@@ -345,7 +346,7 @@ pub static LOG_ERRORS: Option<ErrorCallback<()>> =
 /// Cursor modes.
 #[cfg(not(target_os="android"))]
 #[repr(i32)]
-#[deriving(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show)]
+#[deriving(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show)]
 pub enum CursorMode {
     Normal                = ffi::CURSOR_NORMAL,
     Hidden                = ffi::CURSOR_HIDDEN,
@@ -354,6 +355,7 @@ pub enum CursorMode {
 
 /// Describes a single video mode.
 #[cfg(not(target_os="android"))]
+#[deriving(Copy)]
 pub struct VidMode {
     pub width:        u32,
     pub height:       u32,
@@ -390,7 +392,7 @@ pub struct Glfw {
 
 /// An error that might be returned when `glfw::init` is called.
 #[cfg(not(target_os="android"))]
-#[deriving(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show)]
+#[deriving(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show)]
 pub enum InitError {
     /// The library was already initialized.
     AlreadyInitialized,
@@ -513,7 +515,7 @@ impl Glfw {
     /// ~~~ignore
     /// let (window, events) = glfw.with_primary_monitor(|m| {
     ///     glfw.create_window(300, 300, "Hello this is window",
-    ///         m.map_or(glfw::Windowed, |m| glfw::FullScreen(m)))
+    ///         m.map_or(glfw::WindowMode::Windowed, |m| glfw::FullScreen(m)))
     /// }).expect("Failed to create GLFW window.");
     /// ~~~
     pub fn with_primary_monitor<T>(&self, f: |Option<&Monitor>| -> T) -> T {
@@ -568,21 +570,21 @@ impl Glfw {
     ///
     /// 10.7 and 10.8 support the following OpenGL versions:
     ///
-    /// - `glfw::ContextVersion(3, 2)`
+    /// - `glfw::WindowHint::ContextVersion(3, 2)`
     ///
     /// 10.9 supports the following OpenGL versions
     ///
-    /// - `glfw::ContextVersion(3, 2)`
-    /// - `glfw::ContextVersion(3, 3)`
-    /// - `glfw::ContextVersion(4, 1)`
+    /// - `glfw::WindowHint::ContextVersion(3, 2)`
+    /// - `glfw::WindowHint::ContextVersion(3, 3)`
+    /// - `glfw::WindowHint::ContextVersion(4, 1)`
     ///
     /// To create an OS X compatible context, the hints should be specified as
     /// follows:
     ///
     /// ~~~ignore
-    /// glfw.window_hint(glfw::ContextVersion(3, 2));
-    /// glfw.window_hint(glfw::OpenglForwardCompat(true));
-    /// glfw.window_hint(glfw::OpenglProfile(glfw::OpenGlCoreProfile));
+    /// glfw.window_hint(glfw::WindowHint::ContextVersion(3, 2));
+    /// glfw.window_hint(glfw::WindowHint::OpenglForwardCompat(true));
+    /// glfw.window_hint(glfw::WindowHint::OpenglProfile(glfw::OpenGlProfileHint::Core));
     /// ~~~
     pub fn window_hint(&self, hint: WindowHint) {
         match hint {
@@ -886,7 +888,7 @@ impl Monitor {
 /// Monitor events.
 #[cfg(not(target_os="android"))]
 #[repr(i32)]
-#[deriving(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show)]
+#[deriving(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show)]
 pub enum MonitorEvent {
     Connected                   = ffi::CONNECTED,
     Disconnected                = ffi::DISCONNECTED,
@@ -928,7 +930,7 @@ impl fmt::Show for VidMode {
 
 /// Window hints that can be set using the `window_hint` function.
 #[cfg(not(target_os="android"))]
-#[deriving(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show)]
+#[deriving(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show)]
 pub enum WindowHint {
     /// Specifies the desired bit depth of the red component of the default framebuffer.
     RedBits(u32),
@@ -1027,7 +1029,7 @@ pub enum WindowHint {
 /// Client API tokens.
 #[cfg(not(target_os="android"))]
 #[repr(i32)]
-#[deriving(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show)]
+#[deriving(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show)]
 pub enum ClientApiHint {
     OpenGl                   = ffi::OPENGL_API,
     OpenGlEs                 = ffi::OPENGL_ES_API,
@@ -1036,7 +1038,7 @@ pub enum ClientApiHint {
 /// Context robustness tokens.
 #[cfg(not(target_os="android"))]
 #[repr(i32)]
-#[deriving(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show)]
+#[deriving(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show)]
 pub enum ContextRobustnessHint {
     NoRobustness                = ffi::NO_ROBUSTNESS,
     NoResetNotification         = ffi::NO_RESET_NOTIFICATION,
@@ -1046,7 +1048,7 @@ pub enum ContextRobustnessHint {
 /// OpenGL profile tokens.
 #[cfg(not(target_os="android"))]
 #[repr(i32)]
-#[deriving(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show)]
+#[deriving(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show)]
 pub enum OpenGlProfileHint {
     Any            = ffi::OPENGL_ANY_PROFILE,
     Core           = ffi::OPENGL_CORE_PROFILE,
@@ -1055,7 +1057,7 @@ pub enum OpenGlProfileHint {
 
 /// Describes the mode of a window
 #[cfg(not(target_os="android"))]
-#[deriving(Show)]
+#[deriving(Copy, Show)]
 pub enum WindowMode<'a> {
     /// Full screen mode. Contains the monitor on which the window is displayed.
     FullScreen(&'a Monitor),
@@ -1080,6 +1082,7 @@ impl<'a> WindowMode<'a> {
 #[cfg(not(target_os="android"))]
 bitflags! {
     #[doc = "Key modifiers"]
+    #[deriving(Copy)]
     flags Modifiers: c_int {
         const Shift       = ffi::MOD_SHIFT,
         const Control     = ffi::MOD_CONTROL,
@@ -1108,21 +1111,21 @@ pub type Scancode = c_int;
 
 /// Window event messages.
 #[cfg(not(target_os="android"))]
-#[deriving(Clone, PartialEq, PartialOrd, Show)]
+#[deriving(Copy, Clone, PartialEq, PartialOrd, Show)]
 pub enum WindowEvent {
-    PosEvent(i32, i32),
-    SizeEvent(i32, i32),
-    CloseEvent,
-    RefreshEvent,
-    FocusEvent(bool),
-    IconifyEvent(bool),
-    FramebufferSizeEvent(i32, i32),
-    MouseButtonEvent(MouseButton, Action, Modifiers),
-    CursorPosEvent(f64, f64),
-    CursorEnterEvent(bool),
-    ScrollEvent(f64, f64),
-    KeyEvent(Key, Scancode, Action, Modifiers),
-    CharEvent(char),
+    Pos(i32, i32),
+    Size(i32, i32),
+    Close,
+    Refresh,
+    Focus(bool),
+    Iconify(bool),
+    FramebufferSize(i32, i32),
+    MouseButton(MouseButton, Action, Modifiers),
+    CursorPos(f64, f64),
+    CursorEnter(bool),
+    Scroll(f64, f64),
+    Key(Key, Scancode, Action, Modifiers),
+    Char(char),
 }
 
 /// Returns an iterator that yeilds until no more messages are contained in the
@@ -1668,7 +1671,7 @@ pub fn make_context_current(context: Option<&Context>) {
 /// Joystick identifier tokens.
 #[cfg(not(target_os="android"))]
 #[repr(i32)]
-#[deriving(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show, FromPrimitive)]
+#[deriving(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show, FromPrimitive)]
 pub enum JoystickId {
     Joystick1       = ffi::JOYSTICK_1,
     Joystick2       = ffi::JOYSTICK_2,
