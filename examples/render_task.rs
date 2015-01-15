@@ -18,8 +18,9 @@
 
 extern crate glfw;
 
+use std::sync::mpsc::{channel, Receiver};
 use glfw::{Action, Context, Key};
-use std::task::TaskBuilder;
+use std::thread::Builder;
 
 fn main() {
     let glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
@@ -32,8 +33,8 @@ fn main() {
     let render_context = window.render_context();
     let (send, recv) = channel();
 
-    let render_task = TaskBuilder::new().named("render task");
-    let mut render_task_done = render_task.try_future(proc() {
+    let render_task = Builder::new().name("render task".to_string());
+    let render_task_done = render_task.spawn(move || {
         render(render_context, recv);
     });
 
@@ -45,10 +46,10 @@ fn main() {
     }
 
     // Tell the render task to exit.
-    send.send(());
+    send.send(()).ok().expect("Failed signal to render thread.");
 
     // Wait for acknowledgement that the rendering was completed.
-    let _ = render_task_done.get_ref();
+    let _ = render_task_done;
 }
 
 fn render(context: glfw::RenderContext, finish: Receiver<()>) {

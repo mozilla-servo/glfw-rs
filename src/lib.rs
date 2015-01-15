@@ -18,9 +18,6 @@
 #![crate_type = "dylib"]
 #![crate_name = "glfw"]
 
-#![feature(globs)]
-#![feature(macro_rules)]
-#![feature(phase)]
 #![feature(unsafe_destructor)]
 
 #![allow(non_upper_case_globals)]
@@ -52,7 +49,7 @@
 //!         // Poll for and process events
 //!         glfw.poll_events();
 //!         for (_, event) in glfw::flush_messages(&events) {
-//!             println!("{}", event);
+//!             println!("{:?}", event);
 //!             match event {
 //!                 glfw::WindowEvent::Key(Key::Escape, _, Action::Press, _) => {
 //!                     window.set_should_close(true)
@@ -71,25 +68,25 @@ extern crate semver;
 #[cfg(not(target_os="android"))]
 extern crate libc;
 #[cfg(not(target_os="android"))]
-#[phase(plugin, link)]
+#[macro_use]
 extern crate log;
 
 #[cfg(not(target_os="android"))]
 use libc::{c_double, c_float, c_int};
 #[cfg(not(target_os="android"))]
-use libc::{c_uint, c_ushort, c_void};
+use libc::{c_ushort, c_void};
+#[cfg(not(target_os="android"))]
+use std::ffi::CString;
 #[cfg(not(target_os="android"))]
 use std::mem;
 #[cfg(not(target_os="android"))]
-use std::comm::{channel, Receiver, Sender};
+use std::sync::mpsc::{channel, Receiver, Sender};
 #[cfg(not(target_os="android"))]
 use std::fmt;
 #[cfg(not(target_os="android"))]
-use std::kinds::marker;
+use std::marker::{self,Send};
 #[cfg(not(target_os="android"))]
 use std::ptr;
-#[cfg(not(target_os="android"))]
-use std::string;
 #[cfg(not(target_os="android"))]
 use std::vec;
 #[cfg(not(target_os="android"))]
@@ -113,7 +110,7 @@ mod callbacks;
 /// Input actions.
 #[cfg(not(target_os="android"))]
 #[repr(i32)]
-#[deriving(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show)]
 pub enum Action {
     Release                      = ffi::RELEASE,
     Press                        = ffi::PRESS,
@@ -123,7 +120,7 @@ pub enum Action {
 /// Input keys.
 #[cfg(not(target_os="android"))]
 #[repr(i32)]
-#[deriving(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show, FromPrimitive)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show, FromPrimitive)]
 pub enum Key {
     Space                    = ffi::KEY_SPACE,
     Apostrophe               = ffi::KEY_APOSTROPHE,
@@ -252,7 +249,7 @@ pub enum Key {
 /// `MouseButtonMiddle` aliases are supplied for convenience.
 #[cfg(not(target_os="android"))]
 #[repr(i32)]
-#[deriving(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show, FromPrimitive)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show, FromPrimitive)]
 pub enum MouseButton {
     /// The left mouse button. A `MouseButtonLeft` alias is provided to improve clarity.
     Button1                = ffi::MOUSE_BUTTON_1,
@@ -302,7 +299,7 @@ impl<Fn: Copy, UserData: Copy> Copy for Callback<Fn, UserData> {}
 /// Tokens corresponding to various error types.
 #[cfg(not(target_os="android"))]
 #[repr(i32)]
-#[deriving(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show)]
 pub enum Error {
     NotInitialized              = ffi::NOT_INITIALIZED,
     NoCurrentContext            = ffi::NO_CURRENT_CONTEXT,
@@ -329,7 +326,7 @@ pub fn fail_on_errors(_: Error, description: String, _: &()) {
 /// A callback that triggers a task failure when an error is encountered.
 #[cfg(not(target_os="android"))]
 pub static FAIL_ON_ERRORS: Option<ErrorCallback<()>> =
-    Some(Callback { f: fail_on_errors, data: () });
+    Some(Callback { f: fail_on_errors as fn(Error, String, &()), data: () });
 
 /// The function to be used with the `LOG_ERRORS` callback.
 #[cfg(not(target_os="android"))]
@@ -341,12 +338,12 @@ pub fn log_errors(_: Error, description: String, _: &()) {
 /// task failure.
 #[cfg(not(target_os="android"))]
 pub static LOG_ERRORS: Option<ErrorCallback<()>> =
-    Some(Callback { f: log_errors, data: () });
+    Some(Callback { f: log_errors as fn(Error, String, &()), data: () });
 
 /// Cursor modes.
 #[cfg(not(target_os="android"))]
 #[repr(i32)]
-#[deriving(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show)]
 pub enum CursorMode {
     Normal                = ffi::CURSOR_NORMAL,
     Hidden                = ffi::CURSOR_HIDDEN,
@@ -355,7 +352,7 @@ pub enum CursorMode {
 
 /// Describes a single video mode.
 #[cfg(not(target_os="android"))]
-#[deriving(Copy)]
+#[derive(Copy)]
 pub struct VidMode {
     pub width:        u32,
     pub height:       u32,
@@ -384,15 +381,12 @@ pub type GLProc = ffi::GLFWglproc;
 /// statically. The context can be safely cloned or implicitly copied if need be
 /// for convenience.
 #[cfg(not(target_os="android"))]
-#[deriving(Clone)]
-pub struct Glfw {
-    no_send: marker::NoSend,
-    no_share: marker::NoSync,
-}
+#[derive(Copy, Clone)]
+pub struct Glfw;
 
 /// An error that might be returned when `glfw::init` is called.
 #[cfg(not(target_os="android"))]
-#[deriving(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show)]
 pub enum InitError {
     /// The library was already initialized.
     AlreadyInitialized,
@@ -434,7 +428,7 @@ pub fn init<UserData: 'static>(mut callback: Option<ErrorCallback<UserData>>) ->
     static mut INIT: Once = ONCE_INIT;
     let mut result = Err(InitError::AlreadyInitialized);
     unsafe {
-        INIT.doit(|| {
+        INIT.call_once(|| {
             // Initialize the error callback if it was supplied. This is done
             // before `ffi::glfwInit` because errors could occur during
             // initialization.
@@ -444,7 +438,7 @@ pub fn init<UserData: 'static>(mut callback: Option<ErrorCallback<UserData>>) ->
             }
             if ffi::glfwInit() == ffi::TRUE {
                 result = Ok(());
-                std::rt::at_exit(proc() {
+                std::rt::at_exit(|| {
                     ffi::glfwTerminate()
                 });
             } else {
@@ -452,10 +446,7 @@ pub fn init<UserData: 'static>(mut callback: Option<ErrorCallback<UserData>>) ->
             }
         })
     }
-    result.map(|_| Glfw {
-        no_send: marker::NoSend,
-        no_share: marker::NoSync,
-    })
+    result.map(|_| Glfw)
 }
 
 #[cfg(not(target_os="android"))]
@@ -467,7 +458,7 @@ impl Glfw {
     /// ~~~ignore
     /// use std::cell::Cell;
     ///
-    /// fn error_callback(_: glfw::Error, description: String, error_count: &Cell<uint>) {
+    /// fn error_callback(_: glfw::Error, description: String, error_count: &Cell<usize>) {
     ///     println!("GLFW error {}: {}", error_count.get(), description);
     ///     error_count.set(error_count.get() + 1);
     /// }
@@ -518,7 +509,7 @@ impl Glfw {
     ///         m.map_or(glfw::WindowMode::Windowed, |m| glfw::FullScreen(m)))
     /// }).expect("Failed to create GLFW window.");
     /// ~~~
-    pub fn with_primary_monitor<T>(&self, f: |Option<&Monitor>| -> T) -> T {
+    pub fn with_primary_monitor<T, F>(&self, f: F) -> T where F: Fn(Option<&Monitor>) -> T {
         match unsafe { ffi::glfwGetPrimaryMonitor() } {
             ptr if ptr.is_null() => f(None),
             ptr => f(Some(&Monitor {
@@ -542,11 +533,11 @@ impl Glfw {
     ///     }
     /// });
     /// ~~~
-    pub fn with_connected_monitors<T>(&self, f: |&[Monitor]| -> T) -> T {
+    pub fn with_connected_monitors<T, F>(&self, f: F) -> T where F: Fn(&[Monitor]) -> T {
         unsafe {
             let mut count = 0;
             let ptr = ffi::glfwGetMonitors(&mut count);
-            f(vec::Vec::from_raw_buf(ptr as *const _, count as uint).iter().map(|&ptr| {
+            f(vec::Vec::from_raw_buf(ptr as *const _, count as usize).iter().map(|&ptr| {
                 Monitor {
                     ptr: ptr,
                     no_copy: marker::NoCopy,
@@ -636,7 +627,7 @@ impl Glfw {
     /// Internal wrapper for `glfwCreateWindow`.
     fn create_window_intern(&self, width: u32, height: u32, title: &str, mode: WindowMode, share: Option<&Window>) -> Option<(Window, Receiver<(f64, WindowEvent)>)> {
         let ptr = unsafe {
-            title.with_c_str(|title| {
+            with_c_str(title, |title| {
                 ffi::glfwCreateWindow(
                     width as c_int,
                     height as c_int,
@@ -651,7 +642,7 @@ impl Glfw {
         } else {
             let (drop_sender, drop_receiver) = channel();
             let (sender, receiver) = channel();
-            unsafe { ffi::glfwSetWindowUserPointer(ptr, mem::transmute(box sender)); }
+            unsafe { ffi::glfwSetWindowUserPointer(ptr, mem::transmute(Box::new(sender))); }
             Some((
                 Window {
                     ptr: ptr,
@@ -736,7 +727,7 @@ impl Glfw {
     /// Wrapper for `glfwExtensionSupported`.
     pub fn extension_supported(&self, extension: &str) -> bool {
         unsafe {
-            extension.with_c_str(|extension| {
+            with_c_str(extension, |extension| {
                 ffi::glfwExtensionSupported(extension) == ffi::TRUE
             })
         }
@@ -748,7 +739,7 @@ impl Glfw {
     /// Wrapper for `glfwGetProcAddress`.
     pub fn get_proc_address_raw(&self, procname: &str) -> GLProc {
         debug_assert!(unsafe { ffi::glfwGetCurrentContext() } != std::ptr::null_mut());
-        procname.with_c_str(|procname| {
+        with_c_str(procname, |procname| {
             unsafe { ffi::glfwGetProcAddress(procname) }
         })
     }
@@ -773,19 +764,31 @@ pub fn get_version() -> Version {
         let mut patch = 0;
         ffi::glfwGetVersion(&mut major, &mut minor, &mut patch);
         Version {
-            major: major as uint,
-            minor: minor as uint,
-            patch: patch as uint,
+            major: major as u64,
+            minor: minor as u64,
+            patch: patch as u64,
             pre:   Vec::new(),
             build: Vec::new(),
         }
     }
 }
 
+/// Replacement for `String::from_raw_buf`
+pub unsafe fn string_from_c_str(c_str: *const i8) -> String {
+    use std::ffi::c_str_to_bytes;
+    String::from_utf8_lossy(c_str_to_bytes(&c_str)).into_owned()  
+}
+
+/// Replacement for `ToCStr::with_c_str`
+pub fn with_c_str<F, T>(s: &str, f: F) -> T where F: FnOnce(*const i8) -> T {
+    let c_str = CString::from_slice(s.as_bytes());
+    f(c_str.as_slice_with_nul().as_ptr())
+}
+
 /// Wrapper for `glfwGetVersionString`.
 #[cfg(not(target_os="android"))]
 pub fn get_version_string() -> String {
-    unsafe { string::String::from_raw_buf(ffi::glfwGetVersionString() as *const u8) }
+    unsafe { string_from_c_str(ffi::glfwGetVersionString()) }
 }
 
 /// An monitor callback. This can be supplied with some user data to be passed
@@ -833,7 +836,7 @@ impl Monitor {
 
     /// Wrapper for `glfwGetMonitorName`.
     pub fn get_name(&self) -> String {
-        unsafe { string::String::from_raw_buf(ffi::glfwGetMonitorName(self.ptr) as *const u8) }
+        unsafe { string_from_c_str(ffi::glfwGetMonitorName(self.ptr)) }
     }
 
     /// Wrapper for `glfwGetVideoModes`.
@@ -841,7 +844,7 @@ impl Monitor {
         unsafe {
             let mut count = 0;
             let ptr = ffi::glfwGetVideoModes(self.ptr, &mut count);
-            vec::Vec::from_raw_buf(ptr, count as uint).iter().map(VidMode::from_glfw_vid_mode).collect()
+            vec::Vec::from_raw_buf(ptr, count as usize).iter().map(VidMode::from_glfw_vid_mode).collect()
         }
     }
 
@@ -862,9 +865,9 @@ impl Monitor {
         unsafe {
             let llramp = *ffi::glfwGetGammaRamp(self.ptr);
             GammaRamp {
-                red:    vec::Vec::from_raw_buf(llramp.red as *const _,   llramp.size as uint),
-                green:  vec::Vec::from_raw_buf(llramp.green as *const _, llramp.size as uint),
-                blue:   vec::Vec::from_raw_buf(llramp.blue as *const _,  llramp.size as uint),
+                red:    vec::Vec::from_raw_buf(llramp.red as *const _,   llramp.size as usize),
+                green:  vec::Vec::from_raw_buf(llramp.green as *const _, llramp.size as usize),
+                blue:   vec::Vec::from_raw_buf(llramp.blue as *const _,  llramp.size as usize),
             }
         }
     }
@@ -878,7 +881,7 @@ impl Monitor {
                     red:    ramp.red.as_mut_ptr(),
                     green:  ramp.green.as_mut_ptr(),
                     blue:   ramp.blue.as_mut_ptr(),
-                    size:   ramp.red.len() as c_uint,
+                    size:   ramp.red.len() as u32,
                 }
             );
         }
@@ -888,7 +891,7 @@ impl Monitor {
 /// Monitor events.
 #[cfg(not(target_os="android"))]
 #[repr(i32)]
-#[deriving(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show)]
 pub enum MonitorEvent {
     Connected                   = ffi::CONNECTED,
     Disconnected                = ffi::DISCONNECTED,
@@ -930,7 +933,7 @@ impl fmt::Show for VidMode {
 
 /// Window hints that can be set using the `window_hint` function.
 #[cfg(not(target_os="android"))]
-#[deriving(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show)]
 pub enum WindowHint {
     /// Specifies the desired bit depth of the red component of the default framebuffer.
     RedBits(u32),
@@ -1029,7 +1032,7 @@ pub enum WindowHint {
 /// Client API tokens.
 #[cfg(not(target_os="android"))]
 #[repr(i32)]
-#[deriving(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show)]
 pub enum ClientApiHint {
     OpenGl                   = ffi::OPENGL_API,
     OpenGlEs                 = ffi::OPENGL_ES_API,
@@ -1038,7 +1041,7 @@ pub enum ClientApiHint {
 /// Context robustness tokens.
 #[cfg(not(target_os="android"))]
 #[repr(i32)]
-#[deriving(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show)]
 pub enum ContextRobustnessHint {
     NoRobustness                = ffi::NO_ROBUSTNESS,
     NoResetNotification         = ffi::NO_RESET_NOTIFICATION,
@@ -1048,7 +1051,7 @@ pub enum ContextRobustnessHint {
 /// OpenGL profile tokens.
 #[cfg(not(target_os="android"))]
 #[repr(i32)]
-#[deriving(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show)]
 pub enum OpenGlProfileHint {
     Any            = ffi::OPENGL_ANY_PROFILE,
     Core           = ffi::OPENGL_CORE_PROFILE,
@@ -1057,7 +1060,7 @@ pub enum OpenGlProfileHint {
 
 /// Describes the mode of a window
 #[cfg(not(target_os="android"))]
-#[deriving(Copy, Show)]
+#[derive(Copy, Show)]
 pub enum WindowMode<'a> {
     /// Full screen mode. Contains the monitor on which the window is displayed.
     FullScreen(&'a Monitor),
@@ -1082,7 +1085,6 @@ impl<'a> WindowMode<'a> {
 #[cfg(not(target_os="android"))]
 bitflags! {
     #[doc = "Key modifiers"]
-    #[deriving(Copy)]
     flags Modifiers: c_int {
         const Shift       = ffi::MOD_SHIFT,
         const Control     = ffi::MOD_CONTROL,
@@ -1111,7 +1113,7 @@ pub type Scancode = c_int;
 
 /// Window event messages.
 #[cfg(not(target_os="android"))]
-#[deriving(Copy, Clone, PartialEq, PartialOrd, Show)]
+#[derive(Copy, Clone, PartialEq, PartialOrd, Show)]
 pub enum WindowEvent {
     Pos(i32, i32),
     Size(i32, i32),
@@ -1150,7 +1152,9 @@ pub fn flush_messages<'a, Message: Send>(receiver: &'a Receiver<Message>) -> Flu
 pub struct FlushedMessages<'a, Message: 'a>(&'a Receiver<Message>);
 
 #[cfg(not(target_os="android"))]
-impl<'a, Message: Send> Iterator<Message> for FlushedMessages<'a, Message> {
+impl<'a, Message: Send> Iterator for FlushedMessages<'a, Message> {
+    type Item = Message;
+
     fn next(&mut self) -> Option<Message> {
         let FlushedMessages(receiver) = *self;
         match receiver.try_recv() {
@@ -1234,7 +1238,7 @@ impl Window {
     /// Wrapper for `glfwSetWindowTitle`.
     pub fn set_title(&self, title: &str) {
         unsafe {
-            title.with_c_str(|title| {
+            with_c_str(title, |title| {
                 ffi::glfwSetWindowTitle(self.ptr, title);
             });
         }
@@ -1312,7 +1316,7 @@ impl Window {
     ///     }
     /// });
     /// ~~~
-    pub fn with_window_mode<T>(&self, f: |WindowMode| -> T) -> T {
+    pub fn with_window_mode<T, F>(&self, f: F) -> T where F: Fn(WindowMode) -> T {
         let ptr = unsafe { ffi::glfwGetWindowMonitor(self.ptr) };
         if ptr.is_null() {
             f(WindowMode::Windowed)
@@ -1350,9 +1354,9 @@ impl Window {
     pub fn get_context_version(&self) -> Version {
         unsafe {
             Version {
-                major: ffi::glfwGetWindowAttrib(self.ptr, ffi::CONTEXT_VERSION_MAJOR) as uint,
-                minor: ffi::glfwGetWindowAttrib(self.ptr, ffi::CONTEXT_VERSION_MINOR) as uint,
-                patch: ffi::glfwGetWindowAttrib(self.ptr, ffi::CONTEXT_REVISION) as uint,
+                major: ffi::glfwGetWindowAttrib(self.ptr, ffi::CONTEXT_VERSION_MAJOR) as u64,
+                minor: ffi::glfwGetWindowAttrib(self.ptr, ffi::CONTEXT_VERSION_MINOR) as u64,
+                patch: ffi::glfwGetWindowAttrib(self.ptr, ffi::CONTEXT_REVISION) as u64,
                 pre:   Vec::new(),
                 build: Vec::new(),
             }
@@ -1533,7 +1537,7 @@ impl Window {
     /// Wrapper for `glfwGetClipboardString`.
     pub fn set_clipboard_string(&self, string: &str) {
         unsafe {
-            string.with_c_str(|string| {
+            with_c_str(string, |string| {
                 ffi::glfwSetClipboardString(self.ptr, string);
             });
         }
@@ -1541,7 +1545,7 @@ impl Window {
 
     /// Wrapper for `glfwGetClipboardString`.
     pub fn get_clipboard_string(&self) -> String {
-        unsafe { string::String::from_raw_buf(ffi::glfwGetClipboardString(self.ptr) as *const u8) }
+        unsafe { string_from_c_str(ffi::glfwGetClipboardString(self.ptr)) }
     }
 
     /// Wrapper for `glfwGetWin32Window`
@@ -1593,10 +1597,10 @@ impl Drop for Window {
         drop(self.drop_sender.take());
 
         // Check if all senders from the child `RenderContext`s have hung up.
-        if self.drop_receiver.try_recv() != Err(std::comm::Disconnected) {
+        if self.drop_receiver.try_recv() != Err(std::sync::mpsc::TryRecvError::Disconnected) {
             debug!("Attempted to drop a Window before the `RenderContext` was dropped.");
             debug!("Blocking until the `RenderContext` was dropped.");
-            let _ = self.drop_receiver.recv_opt();
+            let _ = self.drop_receiver.recv();
         }
 
         if !self.is_shared {
@@ -1620,6 +1624,8 @@ pub struct RenderContext {
     #[allow(dead_code)]
     drop_sender: Sender<()>,
 }
+
+unsafe impl Send for RenderContext {}
 
 /// Methods common to renderable contexts
 #[cfg(not(target_os="android"))]
@@ -1671,7 +1677,7 @@ pub fn make_context_current(context: Option<&Context>) {
 /// Joystick identifier tokens.
 #[cfg(not(target_os="android"))]
 #[repr(i32)]
-#[deriving(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show, FromPrimitive)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Show, FromPrimitive)]
 pub enum JoystickId {
     Joystick1       = ffi::JOYSTICK_1,
     Joystick2       = ffi::JOYSTICK_2,
@@ -1693,6 +1699,7 @@ pub enum JoystickId {
 
 /// A joystick handle.
 #[cfg(not(target_os="android"))]
+#[derive(Copy)]
 pub struct Joystick {
     pub id: JoystickId,
     pub glfw: Glfw,
@@ -1710,7 +1717,7 @@ impl Joystick {
         unsafe {
             let mut count = 0;
             let ptr = ffi::glfwGetJoystickAxes(self.id as c_int, &mut count);
-            vec::Vec::from_raw_buf(ptr, count as uint).iter().map(|&a| a as f32).collect()
+            vec::Vec::from_raw_buf(ptr, count as usize).iter().map(|&a| a as f32).collect()
         }
     }
 
@@ -1719,12 +1726,12 @@ impl Joystick {
         unsafe {
             let mut count = 0;
             let ptr = ffi::glfwGetJoystickButtons(self.id as c_int, &mut count);
-            vec::Vec::from_raw_buf(ptr, count as uint).iter().map(|&b| b as c_int).collect()
+            vec::Vec::from_raw_buf(ptr, count as usize).iter().map(|&b| b as c_int).collect()
         }
     }
 
     /// Wrapper for `glfwGetJoystickName`.
     pub fn get_name(&self) -> String {
-        unsafe { string::String::from_raw_buf(ffi::glfwGetJoystickName(self.id as c_int) as *const u8) }
+        unsafe { string_from_c_str(ffi::glfwGetJoystickName(self.id as c_int)) }
     }
 }
